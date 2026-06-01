@@ -1,10 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
 function adminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!
-  )
+  const key = process.env.SUPABASE_SERVICE_KEY!.replace(/^﻿/, '').trim()
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace(/^﻿/, '').trim()
+  return createClient(url, key)
 }
 
 export async function POST(req: Request) {
