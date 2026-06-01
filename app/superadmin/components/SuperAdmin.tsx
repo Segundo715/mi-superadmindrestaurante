@@ -565,9 +565,9 @@ function FeatureFlags({
     if (sel === "all") {
       const globalFlags: Record<string, boolean> = {};
       FEATURES.forEach((f) => { globalFlags[f.id] = newFlags[`all_${f.id}`] ?? true; });
-      fetch("https://mi-proyecto-phi-ecru.vercel.app/api/features", {
+      fetch("/api/save-flags", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-superadmin-secret": "superadmin-nicho-2024" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(globalFlags),
       }).then(async r => {
           if (!r.ok) {
