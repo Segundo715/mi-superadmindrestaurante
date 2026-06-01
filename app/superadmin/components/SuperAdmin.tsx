@@ -562,11 +562,15 @@ function FeatureFlags({
     const newFlags = { ...flags, [k(fid)]: next };
     setFlags(newFlags);
 
-    // Persist global flags to Supabase (key "feature_flags" in settings table)
+    // Persist global flags via mi-proyecto API
     if (sel === "all") {
       const globalFlags: Record<string, boolean> = {};
       FEATURES.forEach((f) => { globalFlags[f.id] = newFlags[`all_${f.id}`] ?? true; });
-      supabase.from("settings").upsert({ key: "feature_flags", value: JSON.stringify(globalFlags) }, { onConflict: "key" });
+      fetch("https://mi-proyecto-phi-ecru.vercel.app/api/features", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-superadmin-secret": "superadmin-nicho-2024" },
+        body: JSON.stringify(globalFlags),
+      });
     }
 
     addAudit(`Feature flag ${next ? "activada" : "desactivada"}`, `${fname} → ${selName}`, "update", selName === "Global" ? "—" : selName);
