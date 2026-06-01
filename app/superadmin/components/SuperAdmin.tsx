@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -558,7 +559,16 @@ function FeatureFlags({
 
   const toggle = (fid: string, fname: string) => {
     const next = !(flags[k(fid)] ?? true);
-    setFlags((p) => ({ ...p, [k(fid)]: next }));
+    const newFlags = { ...flags, [k(fid)]: next };
+    setFlags(newFlags);
+
+    // Persist global flags to Supabase (key "feature_flags" in settings table)
+    if (sel === "all") {
+      const globalFlags: Record<string, boolean> = {};
+      FEATURES.forEach((f) => { globalFlags[f.id] = newFlags[`all_${f.id}`] ?? true; });
+      supabase.from("settings").upsert({ key: "feature_flags", value: JSON.stringify(globalFlags) }, { onConflict: "key" });
+    }
+
     addAudit(`Feature flag ${next ? "activada" : "desactivada"}`, `${fname} → ${selName}`, "update", selName === "Global" ? "—" : selName);
     showToast(`${fname} ${next ? "activada" : "desactivada"} en ${selName}`);
   };
