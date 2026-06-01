@@ -569,8 +569,14 @@ function FeatureFlags({
         method: "POST",
         headers: { "Content-Type": "application/json", "x-superadmin-secret": "superadmin-nicho-2024" },
         body: JSON.stringify(globalFlags),
-      }).then(r => { if (!r.ok) showToast("Error al guardar en el servidor", "error"); })
-        .catch(() => showToast("Error de conexión al guardar flags", "error"));
+      }).then(async r => {
+          if (!r.ok) {
+            const body = await r.json().catch(() => ({}));
+            showToast(`Error ${r.status}: ${body.error ?? "desconocido"}`, "error");
+          } else {
+            showToast("Flags guardados ✓", "success");
+          }
+        }).catch((e) => showToast(`Red: ${e.message}`, "error"));
     }
 
     addAudit(`Feature flag ${next ? "activada" : "desactivada"}`, `${fname} → ${selName}`, "update", selName === "Global" ? "—" : selName);
