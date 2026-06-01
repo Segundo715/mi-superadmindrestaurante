@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -570,7 +569,8 @@ function FeatureFlags({
         method: "POST",
         headers: { "Content-Type": "application/json", "x-superadmin-secret": "superadmin-nicho-2024" },
         body: JSON.stringify(globalFlags),
-      });
+      }).then(r => { if (!r.ok) showToast("Error al guardar en el servidor", "error"); })
+        .catch(() => showToast("Error de conexión al guardar flags", "error"));
     }
 
     addAudit(`Feature flag ${next ? "activada" : "desactivada"}`, `${fname} → ${selName}`, "update", selName === "Global" ? "—" : selName);
