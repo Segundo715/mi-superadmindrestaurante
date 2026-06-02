@@ -1,8 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
+function stripBom(s: string): string {
+  return s.charCodeAt(0) === 65279 ? s.slice(1) : s
+}
+
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  stripBom((process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').trim()),
+  stripBom((process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '').trim())
 )
 
 export async function POST(req: Request) {
