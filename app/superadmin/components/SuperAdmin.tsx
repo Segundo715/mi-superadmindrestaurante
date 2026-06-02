@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -551,6 +551,18 @@ function FeatureFlags({
   const [roles, setRoles] = useState<Record<string, ("admin" | "employee" | "user")[]>>(() =>
     Object.fromEntries(FEATURES.map((f) => [f.id, ["admin", "employee", "user"]]))
   );
+
+  useEffect(() => {
+    fetch("https://mi-proyecto-phi-ecru.vercel.app/api/features")
+      .then(r => r.json())
+      .then((saved: Record<string, boolean>) => {
+        setFlags(prev => {
+          const next = { ...prev };
+          FEATURES.forEach(f => { next[`all_${f.id}`] = saved[f.id] ?? f.defaultEnabled; });
+          return next;
+        });
+      }).catch(() => {});
+  }, []);
 
   const k = (fid: string) => `${sel}_${fid}`;
   const selName = sel === "all" ? "Global" : restaurants.find((r) => r.id === sel)?.name ?? sel;
@@ -1450,6 +1462,19 @@ function Permisos({ restaurants, addAudit, showToast }: {
     });
     return init;
   });
+
+  useEffect(() => {
+    fetch("https://mi-proyecto-phi-ecru.vercel.app/api/permissions")
+      .then(r => r.json())
+      .then((saved: { employee: Record<string, boolean>; user: Record<string, boolean> }) => {
+        setFlags(prev => {
+          const next = { ...prev };
+          EMPLOYEE_MODULES.forEach(m => { if (m.id in saved.employee) next[`all_${m.id}`] = saved.employee[m.id]; });
+          USER_MODULES.forEach(m => { if (m.id in saved.user) next[`all_${m.id}`] = saved.user[m.id]; });
+          return next;
+        });
+      }).catch(() => {});
+  }, []);
 
   const toggle = (m: typeof modules[0]) => {
     if (m.locked && !(flags[key(m.id)])) {
