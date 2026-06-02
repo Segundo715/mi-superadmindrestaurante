@@ -1,14 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 
-function adminClient() {
-  const key = process.env.SUPABASE_SERVICE_KEY!.replace(/^﻿/, '').trim()
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace(/^﻿/, '').trim()
-  return createClient(url, key)
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export async function POST(req: Request) {
   const flags = await req.json()
-  const { error } = await adminClient()
+  const { error } = await supabase
     .from('settings')
     .upsert({ key: 'feature_flags', value: JSON.stringify(flags) }, { onConflict: 'key' })
 
