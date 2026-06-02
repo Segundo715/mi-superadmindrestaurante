@@ -6,10 +6,13 @@ const supabase = createClient(
 )
 
 export async function POST(req: Request) {
-  const flags = await req.json()
+  const body = await req.json()
+  const settingsKey: string = body.settingsKey ?? 'feature_flags'
+  const flags = body.flags ?? body
+
   const { error } = await supabase
     .from('settings')
-    .upsert({ key: 'feature_flags', value: JSON.stringify(flags) }, { onConflict: 'key' })
+    .upsert({ key: settingsKey, value: JSON.stringify(flags) }, { onConflict: 'key' })
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json({ ok: true })

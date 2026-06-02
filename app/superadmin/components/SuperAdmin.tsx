@@ -1457,11 +1457,27 @@ function Permisos({ restaurants, addAudit, showToast }: {
       return;
     }
     const next = !flags[key(m.id)];
-    setFlags((p) => ({ ...p, [key(m.id)]: next }));
+    const newFlags = { ...flags, [key(m.id)]: next };
+    setFlags(newFlags);
+
+    if (sel === "all") {
+      const settingsKey = tab === "employee" ? "employee_permissions" : "user_permissions";
+      const currentMods = tab === "employee" ? EMPLOYEE_MODULES : USER_MODULES;
+      const perms: Record<string, boolean> = {};
+      currentMods.forEach((mod) => { perms[mod.id] = newFlags[`all_${mod.id}`] ?? !mod.locked; });
+      fetch("/api/save-flags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settingsKey, flags: perms }),
+      }).then(async r => {
+        if (!r.ok) { const b = await r.json().catch(() => ({})); showToast(`Error: ${b.error ?? "desconocido"}`, "error"); }
+        else { showToast(`${m.name} ${next ? "activado" : "desactivado"} ✓`, "success"); }
+      }).catch(() => showToast("Error de conexión", "error"));
+    }
+
     const rolLabel = tab === "employee" ? "Empleado" : "Usuario";
     const ctx = sel === "all" ? "Global" : restaurants.find((r) => r.id === sel)?.name ?? sel;
     addAudit(`Permiso ${next ? "activado" : "desactivado"} — ${rolLabel}`, `${m.name} → ${ctx}`, "update", ctx === "Global" ? "—" : ctx);
-    showToast(`${m.name} ${next ? "activado" : "desactivado"} para ${rolLabel} en ${ctx}`);
   };
 
   const selName = sel === "all" ? "Todos los restaurantes" : restaurants.find((r) => r.id === sel)?.name ?? sel;
