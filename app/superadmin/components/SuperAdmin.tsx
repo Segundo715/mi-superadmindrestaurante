@@ -572,23 +572,23 @@ function FeatureFlags({
     const newFlags = { ...flags, [k(fid)]: next };
     setFlags(newFlags);
 
-    // Persist global flags via mi-proyecto API
-    if (sel === "all") {
-      const globalFlags: Record<string, boolean> = {};
-      FEATURES.forEach((f) => { globalFlags[f.id] = newFlags[`all_${f.id}`] ?? true; });
-      fetch("/api/save-flags", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(globalFlags),
-      }).then(async r => {
-          if (!r.ok) {
-            const body = await r.json().catch(() => ({}));
-            showToast(`Error ${r.status}: ${body.error ?? "desconocido"}`, "error");
-          } else {
-            showToast("Flags guardados ✓", "success");
-          }
-        }).catch((e) => showToast(`Red: ${e.message}`, "error"));
-    }
+    // Persist flags — global or per-restaurant
+    const scopeKey = sel === "all" ? "all" : sel;
+    const settingsKey = sel === "all" ? "feature_flags" : `feature_flags_${sel}`;
+    const savedFlags: Record<string, boolean> = {};
+    FEATURES.forEach((f) => { savedFlags[f.id] = newFlags[`${scopeKey}_${f.id}`] ?? true; });
+    fetch("/api/save-flags", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settingsKey, flags: savedFlags }),
+    }).then(async r => {
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        showToast(`Error ${r.status}: ${body.error ?? "desconocido"}`, "error");
+      } else {
+        showToast("Flags guardados ✓", "success");
+      }
+    }).catch((e) => showToast(`Red: ${e.message}`, "error"));
 
     addAudit(`Feature flag ${next ? "activada" : "desactivada"}`, `${fname} → ${selName}`, "update", selName === "Global" ? "—" : selName);
     showToast(`${fname} ${next ? "activada" : "desactivada"} en ${selName}`);
@@ -1477,28 +1477,24 @@ function Permisos({ restaurants, addAudit, showToast }: {
   }, []);
 
   const toggle = (m: typeof modules[0]) => {
-    if (m.locked && !(flags[key(m.id)])) {
-      showToast("Esta función requiere autorización del Super Admin", "error");
-      return;
-    }
     const next = !flags[key(m.id)];
     const newFlags = { ...flags, [key(m.id)]: next };
     setFlags(newFlags);
 
-    if (sel === "all") {
-      const settingsKey = tab === "employee" ? "employee_permissions" : "user_permissions";
-      const currentMods = tab === "employee" ? EMPLOYEE_MODULES : USER_MODULES;
-      const perms: Record<string, boolean> = {};
-      currentMods.forEach((mod) => { perms[mod.id] = newFlags[`all_${mod.id}`] ?? !mod.locked; });
-      fetch("/api/save-flags", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settingsKey, flags: perms }),
-      }).then(async r => {
-        if (!r.ok) { const b = await r.json().catch(() => ({})); showToast(`Error: ${b.error ?? "desconocido"}`, "error"); }
-        else { showToast(`${m.name} ${next ? "activado" : "desactivado"} ✓`, "success"); }
-      }).catch(() => showToast("Error de conexión", "error"));
-    }
+    const baseKey = tab === "employee" ? "employee_permissions" : "user_permissions";
+    const settingsKey = sel === "all" ? baseKey : `${baseKey}_${sel}`;
+    const scopeKey = sel === "all" ? "all" : sel;
+    const currentMods = tab === "employee" ? EMPLOYEE_MODULES : USER_MODULES;
+    const perms: Record<string, boolean> = {};
+    currentMods.forEach((mod) => { perms[mod.id] = newFlags[`${scopeKey}_${mod.id}`] ?? !mod.locked; });
+    fetch("/api/save-flags", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settingsKey, flags: perms }),
+    }).then(async r => {
+      if (!r.ok) { const b = await r.json().catch(() => ({})); showToast(`Error: ${b.error ?? "desconocido"}`, "error"); }
+      else { showToast(`${m.name} ${next ? "activado" : "desactivado"} ✓`, "success"); }
+    }).catch(() => showToast("Error de conexión", "error"));
 
     const rolLabel = tab === "employee" ? "Empleado" : "Usuario";
     const ctx = sel === "all" ? "Global" : restaurants.find((r) => r.id === sel)?.name ?? sel;
