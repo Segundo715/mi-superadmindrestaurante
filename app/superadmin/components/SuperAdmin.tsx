@@ -97,26 +97,25 @@ const SEED_DISCOUNTS: DiscountCode[] = [
 ];
 
 const FEATURES: FeatureFlag[] = [
-  { id: "dashboard",        name: "Dashboard",           description: "Vista principal con métricas del día",          category: "Core",         defaultEnabled: true  },
+  // IDs alineados con mi-proyecto
   { id: "ventas",           name: "Ventas",              description: "Transacciones, tickets y cierres",              category: "Core",         defaultEnabled: true  },
   { id: "operaciones",      name: "Operaciones",         description: "Mesas, pedidos y KDS en tiempo real",           category: "Core",         defaultEnabled: true  },
   { id: "configuracion",    name: "Configuración",       description: "Sucursales, usuarios, roles e integraciones",   category: "Core",         defaultEnabled: true  },
+  { id: "analytics",        name: "Analytics",           description: "Métricas avanzadas, tendencias y predicciones", category: "Core",         defaultEnabled: true  },
+  { id: "reportes",         name: "Reportes",            description: "Exportar PDF, Excel, CSV programados",          category: "Analytics",    defaultEnabled: true  },
   { id: "menu",             name: "Menú Inteligente",    description: "Productos, categorías y disponibilidad",        category: "Menú",         defaultEnabled: true  },
-  { id: "recetario",        name: "Recetario",           description: "Recetas, porciones y costos de producción",     category: "Menú",         defaultEnabled: true  },
+  { id: "produccion",       name: "Recetario / Producción", description: "Recetas, inventario, stock y merma",         category: "Menú",         defaultEnabled: true  },
   { id: "crm",              name: "CRM",                 description: "Historial de clientes, segmentos y LTV",        category: "Clientes",     defaultEnabled: true  },
+  { id: "customers",        name: "Clientes",            description: "Gestión de perfiles y visitas de clientes",     category: "Clientes",     defaultEnabled: true  },
   { id: "reservaciones",    name: "Reservaciones",       description: "Gestión de mesas y disponibilidad",             category: "Clientes",     defaultEnabled: true  },
-  { id: "resenas",          name: "Reseñas",             description: "Buenas y negativas, gestión de reputación",     category: "Clientes",     defaultEnabled: true  },
-  { id: "fidelizacion",     name: "Fidelización",        description: "Puntos, tiers Bronze/Silver/Gold/Platinum",     category: "Fidelización", defaultEnabled: true  },
-  { id: "sellar_visitas",   name: "Sellar visitas",      description: "Registro manual de visitas para puntos",        category: "Fidelización", defaultEnabled: true  },
-  { id: "tarjetas",         name: "Tarjetas digitales",  description: "Apple Wallet, Google Wallet y push",            category: "Fidelización", defaultEnabled: false },
+  { id: "reviews",          name: "Reseñas",             description: "Buenas y negativas, gestión de reputación",     category: "Clientes",     defaultEnabled: true  },
+  { id: "orders",           name: "Pedidos",             description: "Gestión de pedidos en tiempo real",             category: "Clientes",     defaultEnabled: true  },
+  { id: "loyaltyCard",      name: "Fidelización",        description: "Puntos, tiers Bronze/Silver/Gold/Platinum",     category: "Fidelización", defaultEnabled: true  },
+  { id: "favorites",        name: "Favoritos",           description: "Platillos favoritos del cliente",               category: "Fidelización", defaultEnabled: true  },
+  { id: "tv",               name: "Pantallas Digitales", description: "Menú digital y señalización KDS",               category: "Operaciones",  defaultEnabled: false },
   { id: "marketing",        name: "Marketing",           description: "Campañas Meta Ads, TikTok, Google Ads",         category: "Marketing",    defaultEnabled: false },
   { id: "automatizaciones", name: "Automatizaciones IA", description: "Agentes de reservas, seguimiento y reputación", category: "IA",           defaultEnabled: false },
   { id: "contenido",        name: "Contenido",           description: "Multimedia, fotos y videos del restaurante",    category: "Marketing",    defaultEnabled: false },
-  { id: "produccion",       name: "Producción",          description: "Inventario, stock, merma y órdenes de compra",  category: "Operaciones",  defaultEnabled: true  },
-  { id: "pantallas",        name: "Pantallas Digitales", description: "Menú digital y señalización KDS",               category: "Operaciones",  defaultEnabled: false },
-  { id: "analytics",        name: "Analytics",           description: "Métricas avanzadas, tendencias y predicciones", category: "Analytics",    defaultEnabled: false },
-  { id: "reportes",         name: "Reportes",            description: "Exportar PDF, Excel, CSV programados",          category: "Analytics",    defaultEnabled: true  },
-  { id: "navegador",        name: "Navegador",           description: "Acceso a recursos web desde el dashboard",      category: "Extra",        defaultEnabled: false },
 ];
 
 const SEED_AUDIT: AuditEntry[] = [
