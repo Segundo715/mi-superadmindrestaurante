@@ -552,13 +552,19 @@ function FeatureFlags({
     Object.fromEntries(FEATURES.map((f) => [f.id, ["admin", "employee", "user"]]))
   );
 
+  // r1 = Nicho Restaurant = mi-proyecto (mismo key que Global)
+  const CONNECTED_RESTAURANT = "r1";
+
   useEffect(() => {
     fetch("https://mi-proyecto-phi-ecru.vercel.app/api/features")
       .then(r => r.json())
       .then((saved: Record<string, boolean>) => {
         setFlags(prev => {
           const next = { ...prev };
-          FEATURES.forEach(f => { next[`all_${f.id}`] = saved[f.id] ?? f.defaultEnabled; });
+          FEATURES.forEach(f => {
+            next[`all_${f.id}`] = saved[f.id] ?? f.defaultEnabled;
+            next[`${CONNECTED_RESTAURANT}_${f.id}`] = saved[f.id] ?? f.defaultEnabled;
+          });
           return next;
         });
       }).catch(() => {});
@@ -570,13 +576,15 @@ function FeatureFlags({
   const toggle = (fid: string, fname: string) => {
     const next = !(flags[k(fid)] ?? true);
     const newFlags = { ...flags, [k(fid)]: next };
+    // Sync: if changing r1, also update all_* and vice versa
+    if (sel === CONNECTED_RESTAURANT) newFlags[`all_${fid}`] = next;
+    if (sel === "all") newFlags[`${CONNECTED_RESTAURANT}_${fid}`] = next;
     setFlags(newFlags);
 
-    // Persist flags — global or per-restaurant
-    const scopeKey = sel === "all" ? "all" : sel;
-    const settingsKey = sel === "all" ? "feature_flags" : `feature_flags_${sel}`;
+    // Always save to feature_flags (global key = mi-proyecto)
+    const settingsKey = "feature_flags";
     const savedFlags: Record<string, boolean> = {};
-    FEATURES.forEach((f) => { savedFlags[f.id] = newFlags[`${scopeKey}_${f.id}`] ?? true; });
+    FEATURES.forEach((f) => { savedFlags[f.id] = newFlags[`all_${f.id}`] ?? true; });
     fetch("/api/save-flags", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1463,14 +1471,26 @@ function Permisos({ restaurants, addAudit, showToast }: {
     return init;
   });
 
+  const CONNECTED_RESTAURANT = "r1";
+
   useEffect(() => {
     fetch("https://mi-proyecto-phi-ecru.vercel.app/api/permissions")
       .then(r => r.json())
       .then((saved: { employee: Record<string, boolean>; user: Record<string, boolean> }) => {
         setFlags(prev => {
           const next = { ...prev };
-          EMPLOYEE_MODULES.forEach(m => { if (m.id in saved.employee) next[`all_${m.id}`] = saved.employee[m.id]; });
-          USER_MODULES.forEach(m => { if (m.id in saved.user) next[`all_${m.id}`] = saved.user[m.id]; });
+          EMPLOYEE_MODULES.forEach(m => {
+            if (m.id in saved.employee) {
+              next[`all_${m.id}`] = saved.employee[m.id];
+              next[`${CONNECTED_RESTAURANT}_${m.id}`] = saved.employee[m.id];
+            }
+          });
+          USER_MODULES.forEach(m => {
+            if (m.id in saved.user) {
+              next[`all_${m.id}`] = saved.user[m.id];
+              next[`${CONNECTED_RESTAURANT}_${m.id}`] = saved.user[m.id];
+            }
+          });
           return next;
         });
       }).catch(() => {});
@@ -1479,14 +1499,17 @@ function Permisos({ restaurants, addAudit, showToast }: {
   const toggle = (m: typeof modules[0]) => {
     const next = !flags[key(m.id)];
     const newFlags = { ...flags, [key(m.id)]: next };
+    // Sync r1 ↔ all
+    if (sel === CONNECTED_RESTAURANT) newFlags[`all_${m.id}`] = next;
+    if (sel === "all") newFlags[`${CONNECTED_RESTAURANT}_${m.id}`] = next;
     setFlags(newFlags);
 
+    // Always save to global key
     const baseKey = tab === "employee" ? "employee_permissions" : "user_permissions";
-    const settingsKey = sel === "all" ? baseKey : `${baseKey}_${sel}`;
-    const scopeKey = sel === "all" ? "all" : sel;
+    const settingsKey = baseKey;
     const currentMods = tab === "employee" ? EMPLOYEE_MODULES : USER_MODULES;
     const perms: Record<string, boolean> = {};
-    currentMods.forEach((mod) => { perms[mod.id] = newFlags[`${scopeKey}_${mod.id}`] ?? !mod.locked; });
+    currentMods.forEach((mod) => { perms[mod.id] = newFlags[`all_${mod.id}`] ?? !mod.locked; });
     fetch("/api/save-flags", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
