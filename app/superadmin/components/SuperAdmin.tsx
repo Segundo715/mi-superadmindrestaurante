@@ -641,7 +641,9 @@ function FeatureFlags({
     });
   };
 
-  const categories = [...new Set(FEATURES.map((f) => f.category))];
+  // Mostrar solo los features del restaurante seleccionado
+  const visibleFeatures = sel === RESTA3_RESTAURANT ? FEATURES_RESTA3 : FEATURES_R1;
+  const categories = [...new Set(visibleFeatures.map((f) => f.category))];
 
   return (
     <div>
@@ -666,12 +668,12 @@ function FeatureFlags({
         <div key={cat} className="sa-card" style={{ marginBottom: "16px" }}>
           <div className="sa-card-header">
             <span className="sa-card-title">{cat}</span>
-            <span style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>{FEATURES.filter((f) => f.category === cat).length} módulos</span>
+            <span style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>{visibleFeatures.filter((f) => f.category === cat).length} módulos</span>
           </div>
           <table className="sa-table">
             <thead><tr><th>Módulo</th><th>Descripción</th><th>Activo</th><th>Roles con acceso</th></tr></thead>
             <tbody>
-              {FEATURES.filter((f) => f.category === cat).map((f) => {
+              {visibleFeatures.filter((f) => f.category === cat).map((f) => {
                 const on = flags[k(f.id)] ?? f.defaultEnabled;
                 return (
                   <tr key={f.id}>
