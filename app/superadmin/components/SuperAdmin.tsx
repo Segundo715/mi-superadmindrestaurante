@@ -46,7 +46,6 @@ const SEED_RESTAURANTS: Restaurant[] = [
   { id: "r4", name: "Taco Express",     plan: "trial",   status: "active",      users: 2,  maxUsers: 3,  registeredAt: "2026-05-01", balance: 0,    nextPayment: "2026-05-31", lastPayment: "—",          email: "admin@tacoexpress.app", notes: "Trial termina el 31 mayo.",             apiToken: "nch_live_d4e5f6g7h8i9", lastActive: "Hace 3 días",   loginCount: 14  },
   { id: "r5", name: "El Rincón Grill",  plan: "basic",   status: "suspended",   users: 4,  maxUsers: 5,  registeredAt: "2024-09-22", balance: 3600, nextPayment: "Vencida",    lastPayment: "2026-03-22", email: "admin@rincon.app",       notes: "Suspendido por falta de pago.",         apiToken: "nch_live_e5f6g7h8i9j0", lastActive: "Hace 2 meses",  loginCount: 45  },
   { id: "r6", name: "Café Patio",       plan: "basic",   status: "maintenance", users: 2,  maxUsers: 5,  registeredAt: "2025-03-15", balance: 0,    nextPayment: "2026-06-15", lastPayment: "2026-05-15", email: "admin@cafepatio.app",    notes: "En mantenimiento por migración.",       apiToken: "nch_live_f6g7h8i9j0k1", lastActive: "Hace 1 semana", loginCount: 62  },
-  { id: "resta3", name: "Resta3 — Admin Económico", plan: "basic", status: "active", users: 2, maxUsers: 5, registeredAt: "2025-06-01", balance: 0, nextPayment: "2026-07-01", lastPayment: "2026-06-01", email: "admin@resta3.app", notes: "Admin económico conectado a mi-proyecto.", apiToken: "nch_live_resta3abc123", lastActive: "Activo", loginCount: 0 },
 ];
 
 const SEED_PLANS: PlanConfig[] = [
@@ -584,14 +583,15 @@ function FeatureFlags({
           return next;
         });
       }).catch(() => {});
-    // Cargar flags de Resta3
+    // Cargar flags de Resta3 (también en all_* para mostrar en Nicho/Global)
     fetch("https://mi-proyecto-phi-ecru.vercel.app/api/resta3/features")
       .then(r => r.json())
       .then((saved: Record<string, boolean>) => {
         setFlags(prev => {
           const next = { ...prev };
           FEATURES_RESTA3.forEach(f => {
-            next[`${RESTA3_RESTAURANT}_${f.id}`] = saved[f.id] ?? f.defaultEnabled;
+            next[`all_${f.id}`] = saved[f.id] ?? f.defaultEnabled;
+            next[`${CONNECTED_RESTAURANT}_${f.id}`] = saved[f.id] ?? f.defaultEnabled;
           });
           return next;
         });
@@ -609,13 +609,12 @@ function FeatureFlags({
     if (sel === "all") newFlags[`${CONNECTED_RESTAURANT}_${fid}`] = next;
     setFlags(newFlags);
 
-    // Determinar key de Supabase según restaurante seleccionado
-    const isResta3 = sel === RESTA3_RESTAURANT;
-    const settingsKey = isResta3 ? "feature_flags_resta3" : "feature_flags";
-    const featureList = isResta3 ? FEATURES_RESTA3 : FEATURES_R1;
-    const scopeKey = isResta3 ? RESTA3_RESTAURANT : "all";
+    // El feature determina a qué restaurante pertenece (r3_ = resta3)
+    const isResta3Feature = fid.startsWith("r3_");
+    const settingsKey = isResta3Feature ? "feature_flags_resta3" : "feature_flags";
+    const featureList = isResta3Feature ? FEATURES_RESTA3 : FEATURES_R1;
     const savedFlags: Record<string, boolean> = {};
-    featureList.forEach((f) => { savedFlags[f.id] = newFlags[`${scopeKey}_${f.id}`] ?? true; });
+    featureList.forEach((f) => { savedFlags[f.id] = newFlags[`all_${f.id}`] ?? true; });
 
     fetch("/api/save-flags", {
       method: "POST",
@@ -641,8 +640,8 @@ function FeatureFlags({
     });
   };
 
-  // Mostrar solo los features del restaurante seleccionado
-  const visibleFeatures = sel === RESTA3_RESTAURANT ? FEATURES_RESTA3 : FEATURES_R1;
+  // Nicho y Global muestran todos los módulos (r1 + resta3)
+  const visibleFeatures = [...FEATURES_R1, ...FEATURES_RESTA3];
   const categories = [...new Set(visibleFeatures.map((f) => f.category))];
 
   return (
