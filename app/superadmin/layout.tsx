@@ -16,7 +16,7 @@ export default async function SuperAdminLayout({ children }: { children: React.R
 
   // Permitir acceso a /superadmin/login sin autenticación
   if (session !== SESSION_VALUE) {
-    redirect('/')
+    redirect('/sa-login')
   }
 
   return <>{children}</>
