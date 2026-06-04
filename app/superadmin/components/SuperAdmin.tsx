@@ -267,41 +267,6 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-// ─── Login ────────────────────────────────────────────────────────────────────
-
-function Login({ onLogin }: { onLogin: () => void }) {
-  const [pass, setPass] = useState("");
-  const [error, setError] = useState("");
-
-  const handleLogin = () => {
-    if (pass.trim() === "admin123") { onLogin(); }
-    else { setError("Contraseña incorrecta."); }
-  };
-
-  return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#080b16", padding: "24px" }}>
-      <div style={{ width: "100%", maxWidth: "380px", background: "#0e1225", border: "1px solid rgba(255,255,255,.12)", borderRadius: "16px", padding: "40px" }}>
-        <div style={{ fontSize: "32px", marginBottom: "12px" }}>🛡️</div>
-        <h1 style={{ color: "#fff", fontSize: "1.5rem", fontWeight: 800, marginBottom: "4px" }}>Super Admin</h1>
-        <p style={{ color: "#6b7a94", fontSize: ".86rem", marginBottom: "28px" }}>Panel de control NICHO</p>
-        <label style={{ display: "block", color: "#6b7a94", fontSize: ".75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: "6px" }}>Contraseña</label>
-        <input
-          type="password" placeholder="admin123" value={pass}
-          onChange={(e) => setPass(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-          style={{ width: "100%", background: "#141833", border: "1px solid rgba(255,255,255,.12)", borderRadius: "8px", padding: "10px 14px", color: "#eef2f7", fontSize: ".88rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box", marginBottom: "12px" }}
-        />
-        {error && <p style={{ color: "#ef4444", fontSize: ".82rem", marginBottom: "10px" }}>{error}</p>}
-        <button onClick={handleLogin} style={{ width: "100%", padding: "12px", background: "#00e676", color: "#000", border: "none", borderRadius: "8px", fontWeight: 700, fontSize: ".9rem", cursor: "pointer", fontFamily: "inherit" }}>
-          Entrar al dashboard
-        </button>
-        <p style={{ color: "#4a5568", fontSize: ".72rem", textAlign: "center", marginTop: "14px" }}>
-          Contraseña: <strong style={{ color: "#6b7a94" }}>admin123</strong>
-        </p>
-      </div>
-    </div>
-  );
-}
 
 // ─── Overview ─────────────────────────────────────────────────────────────────
 
@@ -2028,10 +1993,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function SuperAdmin() {
-  const [loggedIn, setLoggedIn] = useState(false);
+  async function handleLogout() {
+    await fetch('/api/superadmin/auth', { method: 'DELETE' })
+    window.location.href = '/sa-login'
+  }
   return (
     <div className="sa-root">
-      {loggedIn ? <Dashboard onLogout={() => setLoggedIn(false)} /> : <Login onLogin={() => setLoggedIn(true)} />}
+      <Dashboard onLogout={handleLogout} />
     </div>
   );
 }
