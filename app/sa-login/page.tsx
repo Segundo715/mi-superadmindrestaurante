@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+// Página de login exclusiva del Super Admin.
+// Solo Jesus y Eloy pueden acceder; las credenciales se validan en /api/superadmin/auth.
 export default function SuperAdminLogin() {
   const router = useRouter()
   const [username, setUsername] = useState('')
@@ -20,6 +22,9 @@ export default function SuperAdminLogin() {
       body: JSON.stringify({ username, password }),
     })
     if (res.ok) {
+      const data = await res.json()
+      // Guardamos el nombre en localStorage para mostrarlo en el avatar del sidebar.
+      localStorage.setItem('sa_user', data.user ?? username.toLowerCase())
       router.push('/superadmin')
       router.refresh()
     } else {

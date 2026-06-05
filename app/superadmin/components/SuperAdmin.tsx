@@ -1,5 +1,9 @@
 "use client";
 
+// Panel de control global de la plataforma NICHO.
+// Desde aquí el Super Admin gestiona todos los restaurantes clientes:
+// feature flags, permisos, planes, pagos, auditoría y seguridad.
+
 import { useState, useCallback, useEffect } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -38,6 +42,8 @@ interface DiscountCode {
 }
 
 // ─── Seed data ────────────────────────────────────────────────────────────────
+// Datos de demostración: se usan para poblar la UI en esta versión.
+// Cuando haya persistencia real, estos arrays serán reemplazados por fetches a Supabase.
 
 const SEED_RESTAURANTS: Restaurant[] = [
   { id: "r1", name: "Nicho Restaurant", plan: "premium", status: "active",      users: 8,  maxUsers: 20, registeredAt: "2024-02-10", balance: 0,    nextPayment: "2026-06-10", lastPayment: "2026-05-10", email: "admin@nicho.app",       notes: "Cliente VIP, muy activo. Paga puntual.", apiToken: "nch_live_a1b2c3d4e5f6", lastActive: "Hace 2 horas",  loginCount: 312 },
@@ -190,6 +196,7 @@ interface SecurityConfig {
   ipWhitelist: boolean;
 }
 
+// Valores por defecto de seguridad: 8 h de sesión, máx 5 intentos fallidos, ventana 07:00-23:00.
 const SEED_SECURITY: SecurityConfig[] = SEED_RESTAURANTS.map((r) => ({
   restaurantId: r.id,
   sessionHours: 8,
@@ -210,10 +217,12 @@ const AUDIT_COLORS: Record<AuditType, string> = { create: "active", update: "inf
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
+// Chip de estado con punto de color. `type` mapea a una clase CSS (active/danger/warning/info/muted).
 function Badge({ type, children }: { type: string; children: React.ReactNode }) {
   return <span className={`sa-badge ${type}`}><span className="dot" />{children}</span>;
 }
 
+// Checkbox estilizado como toggle switch (el input real queda oculto).
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="sa-toggle">
@@ -223,6 +232,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   );
 }
 
+// Notificación flotante en la esquina superior derecha. Desaparece tras 3 s (gestionado por showToast en Dashboard).
 function ToastBanner({ toast }: { toast: Toast }) {
   const bg: Record<string, string> = {
     success: "rgba(0,230,118,.15)",
@@ -247,6 +257,7 @@ function ToastBanner({ toast }: { toast: Toast }) {
   );
 }
 
+// Diálogo modal con backdrop oscuro. Clic en el backdrop lo cierra; clic dentro del contenido no.
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div style={{
@@ -274,6 +285,7 @@ function Overview({ restaurants, setView }: { restaurants: Restaurant[]; setView
   const active  = restaurants.filter((r) => r.status === "active").length;
   const withDebt = restaurants.filter((r) => r.balance > 0).length;
   const totalUsers = restaurants.reduce((s, r) => s + r.users, 0);
+  // Ingresos reales: excluye trial (precio $0) y restaurantes suspendidos (no generan MRR).
   const revenue = restaurants.filter((r) => r.plan !== "trial" && r.status === "active")
     .reduce((s, r) => s + PLAN_PRICE[r.plan], 0);
 
@@ -286,6 +298,7 @@ function Overview({ restaurants, setView }: { restaurants: Restaurant[]; setView
         </div>
       </div>
 
+      {/* Cada KPI card es navegable: clic lleva directamente a la sección correspondiente. */}
       <div className="sa-kpi-strip">
         <div className="sa-kpi-card" style={{ cursor: "pointer" }} onClick={() => setView("restaurants")}>
           <div className="sa-kpi-top"><span className="sa-kpi-label">Restaurantes activos</span><div className="sa-kpi-icon" style={{ background: "rgba(0,230,118,.1)", color: "var(--accent)" }}>🏪</div></div>
@@ -379,6 +392,7 @@ function Restaurants({
     return filter === "all" ? s : s && r.plan === filter;
   });
 
+  // Alterna entre activo y suspendido. El modo mantenimiento se maneja desde la sección Maintenance.
   const toggleStatus = (r: Restaurant) => {
     const next: Status = r.status === "suspended" ? "active" : "suspended";
     setRestaurants((prev) => prev.map((x) => x.id === r.id ? { ...x, status: next } : x));
@@ -395,6 +409,7 @@ function Restaurants({
       registeredAt: new Date().toISOString().split("T")[0],
       balance: 0, nextPayment: "—", lastPayment: "—",
       email: newEmail.trim(),
+      // Token de API generado localmente con base36 (12 chars). En producción se haría server-side.
       notes: "", apiToken: `nch_live_${Math.random().toString(36).slice(2, 14)}`,
       lastActive: "Recién registrado", loginCount: 0,
     };
@@ -530,11 +545,14 @@ function FeatureFlags({
     Object.fromEntries(FEATURES.map((f) => [f.id, ["admin", "employee", "user"]]))
   );
 
-  // Restaurantes conectados a mi-proyecto
-  const CONNECTED_RESTAURANT = "r1";   // Nicho Restaurant → feature_flags
-  const RESTA3_RESTAURANT    = "resta3"; // Admin económico → feature_flags_resta3
+  // r1 (Nicho) es el único restaurante que tiene su app real en mi-proyecto.
+  // Cualquier cambio en r1 o en "Global" se escribe en Supabase vía /api/save-flags.
+  const CONNECTED_RESTAURANT = "r1"; // Nicho Restaurant → tabla settings, key: feature_flags
 
   useEffect(() => {
+    // Al montar, sincronizamos el estado local con lo que está guardado en Supabase.
+    // Usamos la API pública de mi-proyecto porque el superadmin está en otro dominio.
+
     // Cargar flags de Nicho (r1) = Global
     fetch("https://mi-proyecto-phi-ecru.vercel.app/api/features")
       .then(r => r.json())
@@ -542,6 +560,7 @@ function FeatureFlags({
         setFlags(prev => {
           const next = { ...prev };
           FEATURES_R1.forEach(f => {
+            // Sincronizamos tanto all_* (selector "Global") como r1_* (selector "Nicho")
             next[`all_${f.id}`] = saved[f.id] ?? f.defaultEnabled;
             next[`${CONNECTED_RESTAURANT}_${f.id}`] = saved[f.id] ?? f.defaultEnabled;
           });
@@ -569,15 +588,19 @@ function FeatureFlags({
   const toggle = (fid: string, fname: string) => {
     const next = !(flags[k(fid)] ?? true);
     const newFlags = { ...flags, [k(fid)]: next };
-    // Nicho (r1) ↔ Global sincronizados
+    // Nicho (r1) y Global comparten los mismos flags reales en Supabase.
+    // Al tocar uno, reflejamos el cambio en el otro para que ambas vistas queden consistentes.
     if (sel === CONNECTED_RESTAURANT) newFlags[`all_${fid}`] = next;
     if (sel === "all") newFlags[`${CONNECTED_RESTAURANT}_${fid}`] = next;
     setFlags(newFlags);
 
-    // El feature determina a qué restaurante pertenece (r3_ = resta3)
+    // Las features con prefijo "r3_" pertenecen al módulo Resta3 y se guardan
+    // en una key separada para no pisar los flags del admin principal de Nicho.
     const isResta3Feature = fid.startsWith("r3_");
     const settingsKey = isResta3Feature ? "feature_flags_resta3" : "feature_flags";
     const featureList = isResta3Feature ? FEATURES_RESTA3 : FEATURES_R1;
+    // Construimos el objeto completo a guardar (no solo el flag cambiado)
+    // para que /api/save-flags haga un upsert completo en Supabase.
     const savedFlags: Record<string, boolean> = {};
     featureList.forEach((f) => { savedFlags[f.id] = newFlags[`all_${f.id}`] ?? true; });
 
@@ -620,6 +643,25 @@ function FeatureFlags({
           showToast("Configuración exportada");
         }}>⬇ Exportar JSON</button>
       </div>
+
+      {/* Resumen de estado */}
+      {(() => {
+        const total = visibleFeatures.length;
+        const scopeKey = sel === "all" ? "all" : sel;
+        const off = visibleFeatures.filter(f => (flags[`${scopeKey}_${f.id}`] ?? f.defaultEnabled) === false).length;
+        return off > 0 ? (
+          <div style={{ marginBottom: "16px", padding: "10px 16px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "10px", display: "flex", alignItems: "center", gap: "10px" }}>
+            <span>⚠️</span>
+            <span style={{ color: "#f87171", fontWeight: 600, fontSize: ".88rem" }}>{off} de {total} módulos desactivados</span>
+            <span style={{ color: "#64748b", fontSize: ".8rem" }}>en {sel === "all" ? "Global" : restaurants.find(r => r.id === sel)?.name ?? sel}</span>
+          </div>
+        ) : (
+          <div style={{ marginBottom: "16px", padding: "10px 16px", background: "rgba(0,230,118,0.06)", border: "1px solid rgba(0,230,118,0.15)", borderRadius: "10px", display: "flex", alignItems: "center", gap: "10px" }}>
+            <span>✅</span>
+            <span style={{ color: "#4ade80", fontWeight: 600, fontSize: ".88rem" }}>Todos los módulos activos</span>
+          </div>
+        );
+      })()}
 
       <div style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
         <button className={`sa-chip${sel === "all" ? " active" : ""}`} onClick={() => setSel("all")}>🌐 Global</button>
@@ -678,6 +720,7 @@ function Billing({
   const [changePlan, setChangePlan] = useState<Restaurant | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<Plan>("basic");
 
+  // Registra el pago: zeroes balance, actualiza lastPayment y auto-reactiva si estaba suspendido.
   const registerPayment = (r: Restaurant) => {
     const paid = r.balance;
     setRestaurants((prev) => prev.map((x) => x.id === r.id
@@ -687,6 +730,7 @@ function Billing({
     showToast(`Pago de $${paid.toLocaleString()} registrado para ${r.name}`);
   };
 
+  // Cambia el plan y ajusta maxUsers al límite del nuevo plan.
   const applyPlanChange = () => {
     if (!changePlan) return;
     const prev = changePlan.plan;
@@ -786,6 +830,7 @@ function AuditLog({ log, showToast }: { log: AuditEntry[]; showToast: (msg: stri
     return matchType && matchSearch;
   });
 
+  // Genera un Blob CSV y dispara una descarga programática mediante un <a> temporal.
   const exportCSV = () => {
     const header = "Fecha,Tipo,Usuario,Restaurante,Acción,Detalles,IP\n";
     const rows = log.map((e) => `"${e.ts}","${e.type}","${e.user}","${e.restaurant}","${e.action}","${e.details}","${e.ip}"`).join("\n");
@@ -853,6 +898,7 @@ function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAu
   const [editing, setEditing] = useState<PlanConfig | null>(null);
   const [draft, setDraft]     = useState<PlanConfig | null>(null);
 
+  // Copia profunda del array de features para que editar el draft no mute el estado original.
   const openEditor = (p: PlanConfig) => { setEditing(p); setDraft({ ...p, features: p.features.map((f) => ({ ...f })) }); };
 
   const saveEdit = () => {
@@ -880,6 +926,7 @@ function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAu
     setDraft({ ...draft, features: draft.features.filter((_, idx) => idx !== i) });
   };
 
+  // Lee el maxUsers del planConfig (no hardcodeado) para que el editor lo pueda cambiar sin tocar este código.
   const applyAssign = () => {
     if (!assign) return;
     const cfg = planConfigs.find((p) => p.id === assign.plan)!;
@@ -1075,6 +1122,7 @@ function Discounts({ addAudit, showToast }: {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ code: "", discount: 20, type: "%" as "%" | "$", maxUses: 50, expiresAt: "", note: "" });
 
+  // Genera un código aleatorio con prefijo NICHO + 5 caracteres base36 en mayúsculas.
   const generate = () => {
     const random = "NICHO" + Math.random().toString(36).toUpperCase().slice(2, 7);
     setForm((p) => ({ ...p, code: random }));
@@ -1090,12 +1138,14 @@ function Discounts({ addAudit, showToast }: {
     setShowForm(false);
   };
 
+  // Activa o desactiva el código sin eliminarlo (el historial de usos se conserva).
   const toggleActive = (id: string) => {
     setCodes((p) => p.map((c) => c.id === id ? { ...c, active: !c.active } : c));
     const c = codes.find((x) => x.id === id)!;
     showToast(`Código ${c.code} ${c.active ? "desactivado" : "activado"}`);
   };
 
+  // Copia el código al portapapeles usando la Clipboard API nativa.
   const copy = (code: string) => {
     navigator.clipboard.writeText(code).then(() => showToast(`Código "${code}" copiado`, "info"));
   };
@@ -1226,6 +1276,7 @@ function Activity({ restaurants }: { restaurants: Restaurant[] }) {
   const sorted = [...restaurants].sort((a, b) => b.loginCount - a.loginCount);
   const avgLogins = Math.round(restaurants.reduce((s, r) => s + r.loginCount, 0) / restaurants.length);
 
+  // Clasifica la salud de cada restaurante: suspended=0, maintenance=30, 0 logins=10, >50=70, >200=100.
   const health = (r: Restaurant) => {
     if (r.status === "suspended") return { label: "Suspendido", color: "#ef4444", score: 0 };
     if (r.status === "maintenance") return { label: "Mantenimiento", color: "#fbbf24", score: 30 };
@@ -1331,6 +1382,7 @@ function Maintenance({ restaurants, setRestaurants, addAudit, showToast }: {
     Object.fromEntries(restaurants.map((r) => [r.id, r.status === "maintenance" ? "Migración de base de datos" : ""]))
   );
 
+  // Alterna entre mantenimiento y activo. No toca el estado "suspended" (eso es responsabilidad de Billing).
   const toggle = (r: Restaurant) => {
     const next: Status = r.status === "maintenance" ? "active" : "maintenance";
     setRestaurants((p) => p.map((x) => x.id === r.id ? { ...x, status: next } : x));
@@ -1381,10 +1433,12 @@ function Notifications({ showToast }: { showToast: (msg: string, type?: Toast["t
   const [ch, setCh] = useState({ email: true, whatsapp: true, push: false });
   const [triggers, setTriggers] = useState({ debt: true, expiry: true, userLimit: true, maintenance: false, newRestaurant: true });
 
+  // Stub de UI: muestra feedback al usuario pero aún no persiste en ningún backend.
   const save = () => {
     showToast("Configuración de notificaciones guardada");
   };
 
+  // Stub de UI: simula enviar una notificación de prueba sin llamada real al servidor.
   const sendTest = () => {
     showToast("Notificación de prueba enviada", "info");
   };
@@ -1469,14 +1523,17 @@ function Permisos({ restaurants, addAudit, showToast }: {
     return init;
   });
 
-  const CONNECTED_RESTAURANT = "r1";
+  const CONNECTED_RESTAURANT = "r1"; // Solo Nicho (r1) tiene app real; los demás restaurantes son demo.
 
   useEffect(() => {
+    // Cargamos los permisos actuales desde Supabase al montar el componente,
+    // para que los toggles reflejen lo que los empleados/usuarios ya tienen activo.
     fetch("https://mi-proyecto-phi-ecru.vercel.app/api/permissions")
       .then(r => r.json())
       .then((saved: { employee: Record<string, boolean>; user: Record<string, boolean> }) => {
         setFlags(prev => {
           const next = { ...prev };
+          // Solo sincronizamos las keys que ya existen en Supabase (no sobreescribimos defaults)
           EMPLOYEE_MODULES.forEach(m => {
             if (m.id in saved.employee) {
               next[`all_${m.id}`] = saved.employee[m.id];
@@ -1497,12 +1554,13 @@ function Permisos({ restaurants, addAudit, showToast }: {
   const toggle = (m: typeof modules[0]) => {
     const next = !flags[key(m.id)];
     const newFlags = { ...flags, [key(m.id)]: next };
-    // Sync r1 ↔ all
+    // Misma lógica que en FeatureFlags: r1 y Global son la misma fuente de verdad.
     if (sel === CONNECTED_RESTAURANT) newFlags[`all_${m.id}`] = next;
     if (sel === "all") newFlags[`${CONNECTED_RESTAURANT}_${m.id}`] = next;
     setFlags(newFlags);
 
-    // Always save to global key
+    // Los permisos se guardan siempre en la key global (no por restaurante)
+    // porque todos los restaurantes leen del mismo Supabase en esta versión.
     const baseKey = tab === "employee" ? "employee_permissions" : "user_permissions";
     const settingsKey = baseKey;
     const currentMods = tab === "employee" ? EMPLOYEE_MODULES : USER_MODULES;
@@ -1617,12 +1675,14 @@ function Solicitudes({ addAudit, showToast }: {
   const [rejectReason, setRejectReason] = useState("");
   const [tab, setTab] = useState<"pending" | "approved" | "rejected">("pending");
 
+  // Aprobación inmediata sin razón requerida; el feature queda desbloqueado en el perfil del restaurante.
   const approve = (r: AccessRequest) => {
     setRequests((p) => p.map((x) => x.id === r.id ? { ...x, status: "approved" } : x));
     addAudit("Solicitud aprobada", `${r.feature} — ${r.restaurantName}`, "update", r.restaurantName);
     showToast(`✅ Aprobado: ${r.feature} para ${r.restaurantName}`);
   };
 
+  // El rechazo requiere un motivo que se guarda en rejectReason y se muestra en la tarjeta.
   const reject = () => {
     if (!rejectModal) return;
     setRequests((p) => p.map((x) => x.id === rejectModal.id ? { ...x, status: "rejected", rejectReason } : x));
@@ -1740,6 +1800,7 @@ function Seguridad({ restaurants, showToast, addAudit }: {
     setConfigs((p) => p.map((c) => c.restaurantId === sel ? { ...c, [field]: value } : c));
   };
 
+  // Registra el cambio en el log de auditoría. Sin persistencia en Supabase aún.
   const save = () => {
     addAudit("Configuración de seguridad actualizada", `${restaurant?.name}`, "update", restaurant?.name);
     showToast(`Seguridad de ${restaurant?.name} guardada`);
@@ -1865,6 +1926,8 @@ function Seguridad({ restaurants, showToast, addAudit }: {
 }
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
+// `section` crea un separador/encabezado de grupo en el sidebar.
+// Los items sin `section` se agrupan bajo el encabezado del item anterior que sí lo tiene.
 
 const NAV: { view: View; icon: string; label: string; section?: string }[] = [
   { view: "overview",      icon: "📊", label: "Métricas globales", section: "Principal" },
@@ -1891,21 +1954,33 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [planConfigs, setPlanConfigs]       = useState<PlanConfig[]>(SEED_PLANS);
   const [toast, setToast]                   = useState<Toast | null>(null);
   const [alertDismissed, setAlertDismissed] = useState(false);
+  const [activeUser, setActiveUser]         = useState("Super Admin");
 
+  useEffect(() => {
+    // Recuperamos el nombre del superadmin que se guardó en el login para mostrarlo en el sidebar.
+    const u = localStorage.getItem('sa_user')
+    if (u) setActiveUser(u.charAt(0).toUpperCase() + u.slice(1))
+  }, []);
+
+  // Auto-oculta el toast después de 3 segundos.
   const showToast = useCallback((msg: string, type: Toast["type"] = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   }, []);
 
+  // Agrega una entrada al log de auditoría con timestamp local.
+  // La IP es fija (obfuscada) porque no tenemos acceso a la IP real del servidor.
   const addAudit = useCallback((action: string, details: string, type: AuditType, restaurant = "—") => {
     const now = new Date();
     const ts = `${now.toISOString().split("T")[0]} ${now.toTimeString().slice(0, 5)}`;
     setAuditLog((prev) => [{ id: `a${Date.now()}`, ts, user: "superadmin", restaurant, action, details, ip: "187.xxx.12", type }, ...prev]);
   }, []);
 
+  // Banner rojo de deuda: visible hasta que el superadmin lo cierre manualmente en la sesión.
   const debtRestaurants = restaurants.filter((r) => r.balance > 0);
   const showAlert = !alertDismissed && debtRestaurants.length > 0;
 
+  // Delega el render a la vista activa, pasando las props compartidas (restaurants, addAudit, showToast).
   const renderView = () => {
     const shared = { restaurants, setRestaurants, addAudit, showToast };
     switch (view) {
@@ -1957,8 +2032,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         </nav>
         <div className="sa-sidebar-footer">
           <div className="sa-user-row">
-            <div className="sa-avatar">SA</div>
-            <div><div className="sa-user-name">Super Admin</div><div className="sa-user-role">superadmin@nicho.app</div></div>
+            <div className="sa-avatar">{activeUser.charAt(0)}</div>
+            <div><div className="sa-user-name">{activeUser}</div><div className="sa-user-role">superadmin@nicho.app</div></div>
             <button className="sa-logout-btn" onClick={onLogout} title="Cerrar sesión">⏻</button>
           </div>
         </div>
@@ -1993,6 +2068,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function SuperAdmin() {
+  // Borra la cookie de sesión en el servidor (DELETE /api/superadmin/auth) y redirige al login.
   async function handleLogout() {
     await fetch('/api/superadmin/auth', { method: 'DELETE' })
     window.location.href = '/sa-login'
