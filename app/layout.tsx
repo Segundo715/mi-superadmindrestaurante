@@ -1,3 +1,5 @@
+// Layout global del proyecto SuperAdmin de NICHO. Sin BrandProvider ni temas dinámicos:
+// este proyecto tiene identidad visual fija (dark, amarillo NICHO).
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";

@@ -1,3 +1,5 @@
+// Persiste feature flags en la tabla settings del proyecto principal (mismo Supabase).
+// Acepta {settingsKey, flags} para guardar tanto los flags de Nicho como los de RESTA3.
 import { createClient } from '@supabase/supabase-js'
 
 function stripBom(s: string): string {

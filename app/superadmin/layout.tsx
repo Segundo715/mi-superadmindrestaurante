@@ -1,3 +1,4 @@
+// Auth guard del panel: verifica sa_session cookie. Redirige a /sa-login si no hay sesión.
 import "./superadmin.css";
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'

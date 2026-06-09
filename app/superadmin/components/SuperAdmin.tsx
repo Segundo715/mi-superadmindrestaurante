@@ -1,8 +1,9 @@
 "use client";
 
 // Panel de control global de la plataforma NICHO.
-// Desde aquí el Super Admin gestiona todos los restaurantes clientes:
-// feature flags, permisos, planes, pagos, auditoría y seguridad.
+// Gestiona restaurantes clientes, feature flags, permisos, planes, pagos, auditoría y seguridad.
+// Los módulos restaurants/audit/discounts/plans/requests/security persisten en Supabase (tablas sa_*).
+// Feature flags de Nicho y RESTA3 se guardan en la tabla settings del proyecto principal vía /api/save-flags.
 
 import { useState, useCallback, useEffect } from "react";
 
@@ -41,66 +42,6 @@ interface DiscountCode {
   maxUses: number; uses: number; expiresAt: string; active: boolean; note: string;
 }
 
-// ─── Seed data ────────────────────────────────────────────────────────────────
-// Datos de demostración: se usan para poblar la UI en esta versión.
-// Cuando haya persistencia real, estos arrays serán reemplazados por fetches a Supabase.
-
-const SEED_RESTAURANTS: Restaurant[] = [
-  { id: "r1", name: "Nicho Restaurant", plan: "premium", status: "active",      users: 8,  maxUsers: 20, registeredAt: "2024-02-10", balance: 0,    nextPayment: "2026-06-10", lastPayment: "2026-05-10", email: "admin@nicho.app",       notes: "Cliente VIP, muy activo. Paga puntual.", apiToken: "nch_live_a1b2c3d4e5f6", lastActive: "Hace 2 horas",  loginCount: 312 },
-  { id: "r2", name: "La Trattoria",     plan: "basic",   status: "active",      users: 3,  maxUsers: 5,  registeredAt: "2024-06-18", balance: 1200, nextPayment: "2026-05-28", lastPayment: "2026-04-28", email: "admin@latra.app",        notes: "Tiene deuda de 2 meses. Contactar.",    apiToken: "nch_live_b2c3d4e5f6g7", lastActive: "Ayer",           loginCount: 98  },
-  { id: "r3", name: "Sushi Zen",        plan: "premium", status: "active",      users: 11, maxUsers: 20, registeredAt: "2025-01-04", balance: 0,    nextPayment: "2026-07-04", lastPayment: "2026-06-04", email: "admin@sushizen.app",     notes: "",                                      apiToken: "nch_live_c3d4e5f6g7h8", lastActive: "Hace 1 hora",   loginCount: 187 },
-  { id: "r4", name: "Taco Express",     plan: "trial",   status: "active",      users: 2,  maxUsers: 3,  registeredAt: "2026-05-01", balance: 0,    nextPayment: "2026-05-31", lastPayment: "—",          email: "admin@tacoexpress.app", notes: "Trial termina el 31 mayo.",             apiToken: "nch_live_d4e5f6g7h8i9", lastActive: "Hace 3 días",   loginCount: 14  },
-  { id: "r5", name: "El Rincón Grill",  plan: "basic",   status: "suspended",   users: 4,  maxUsers: 5,  registeredAt: "2024-09-22", balance: 3600, nextPayment: "Vencida",    lastPayment: "2026-03-22", email: "admin@rincon.app",       notes: "Suspendido por falta de pago.",         apiToken: "nch_live_e5f6g7h8i9j0", lastActive: "Hace 2 meses",  loginCount: 45  },
-  { id: "r6", name: "Café Patio",       plan: "basic",   status: "maintenance", users: 2,  maxUsers: 5,  registeredAt: "2025-03-15", balance: 0,    nextPayment: "2026-06-15", lastPayment: "2026-05-15", email: "admin@cafepatio.app",    notes: "En mantenimiento por migración.",       apiToken: "nch_live_f6g7h8i9j0k1", lastActive: "Hace 1 semana", loginCount: 62  },
-];
-
-const SEED_PLANS: PlanConfig[] = [
-  { id: "trial",   name: "Trial",   price: 0,    trialDays: 30, maxUsers: 3,  color: "#3b82f6",
-    features: [
-      { text: "3 usuarios incluidos",                  included: true  },
-      { text: "Dashboard + Ventas + Operaciones",      included: true  },
-      { text: "Menú Inteligente + Recetario",          included: true  },
-      { text: "Reservaciones",                         included: true  },
-      { text: "CRM + Reseñas",                        included: false },
-      { text: "Fidelización + Sellar visitas",         included: false },
-      { text: "Producción / Inventario",               included: false },
-      { text: "Marketing / Automatizaciones IA",       included: false },
-      { text: "Analytics + Reportes",                  included: false },
-    ],
-  },
-  { id: "basic",   name: "Básico",  price: 799,  trialDays: 0,  maxUsers: 5,  color: "#6366f1",
-    features: [
-      { text: "5 usuarios incluidos",                  included: true  },
-      { text: "Dashboard + Ventas + Operaciones",      included: true  },
-      { text: "Menú Inteligente + Recetario",          included: true  },
-      { text: "Reservaciones + CRM + Reseñas",        included: true  },
-      { text: "Fidelización + Sellar visitas",         included: true  },
-      { text: "Producción / Inventario",               included: true  },
-      { text: "Reportes básicos",                      included: true  },
-      { text: "Marketing / Automatizaciones IA",       included: false },
-      { text: "Analytics avanzado + Pantallas",        included: false },
-    ],
-  },
-  { id: "premium", name: "Premium", price: 2499, trialDays: 0,  maxUsers: 20, color: "#00e676",
-    features: [
-      { text: "20 usuarios incluidos",                 included: true  },
-      { text: "Dashboard + Ventas + Operaciones",      included: true  },
-      { text: "Menú Inteligente + Recetario",          included: true  },
-      { text: "Reservaciones + CRM + Reseñas",        included: true  },
-      { text: "Fidelización + Tarjetas digitales",     included: true  },
-      { text: "Producción / Inventario completo",      included: true  },
-      { text: "Marketing + Contenido",                 included: true  },
-      { text: "Automatizaciones IA",                   included: true  },
-      { text: "Analytics + Reportes + Pantallas",      included: true  },
-    ],
-  },
-];
-
-const SEED_DISCOUNTS: DiscountCode[] = [
-  { id: "d1", code: "NICHO30",   discount: 30, type: "%", maxUses: 50,  uses: 12, expiresAt: "2026-06-30", active: true,  note: "Campaña lanzamiento" },
-  { id: "d2", code: "BASIC200",  discount: 200, type: "$", maxUses: 20, uses: 8,  expiresAt: "2026-05-31", active: true,  note: "Descuento plan básico" },
-  { id: "d3", code: "TRIAL60",   discount: 60, type: "%", maxUses: 100, uses: 34, expiresAt: "2026-07-15", active: false, note: "60 días de prueba extendido" },
-];
 
 // Features de Nicho Restaurant (r1) — admin principal
 const FEATURES_R1: FeatureFlag[] = [
@@ -137,16 +78,6 @@ const FEATURES_RESTA3: FeatureFlag[] = [
 
 const FEATURES = [...FEATURES_R1, ...FEATURES_RESTA3];
 
-const SEED_AUDIT: AuditEntry[] = [
-  { id: "a1", ts: "2026-05-28 11:42", user: "superadmin",    restaurant: "—",              action: "Feature flag desactivada", details: "analytics → Sushi Zen",       ip: "187.xxx.12", type: "update"  },
-  { id: "a2", ts: "2026-05-28 10:15", user: "admin@latra",   restaurant: "La Trattoria",   action: "Borró empleado",           details: "Empleado ID #84 eliminado",    ip: "201.xxx.55", type: "delete"  },
-  { id: "a3", ts: "2026-05-28 09:02", user: "superadmin",    restaurant: "—",              action: "Plan actualizado",         details: "Sushi Zen: basic → premium",   ip: "187.xxx.12", type: "billing" },
-  { id: "a4", ts: "2026-05-27 18:30", user: "admin@nicho",   restaurant: "Nicho Restaurant", action: "Exportó reporte",        details: "Ventas Mayo 2026",             ip: "189.xxx.88", type: "access"  },
-  { id: "a5", ts: "2026-05-27 14:55", user: "superadmin",    restaurant: "—",              action: "Modo mantenimiento ON",    details: "Café Patio — migración DB",    ip: "187.xxx.12", type: "update"  },
-  { id: "a6", ts: "2026-05-26 09:10", user: "superadmin",    restaurant: "—",              action: "Restaurante suspendido",   details: "El Rincón Grill — saldo",      ip: "187.xxx.12", type: "update"  },
-  { id: "a7", ts: "2026-05-25 16:00", user: "admin@taco",    restaurant: "Taco Express",   action: "Invitó empleado",          details: "empleado@taco.com",            ip: "190.xxx.34", type: "create"  },
-];
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 // Módulos del empleado (lo que se ve en el sidebar EMPLEADO)
@@ -178,13 +109,6 @@ interface AccessRequest {
   reason: string; ts: string; status: "pending" | "approved" | "rejected"; rejectReason?: string;
 }
 
-const SEED_REQUESTS: AccessRequest[] = [
-  { id: "req1", restaurantName: "La Trattoria",    requestedBy: "admin@latra.app",       feature: "Menú — editar",     reason: "Necesitamos que los empleados actualicen precios en tiempo real", ts: "2026-05-28 09:14", status: "pending" },
-  { id: "req2", restaurantName: "Taco Express",    requestedBy: "admin@tacoexpress.app", feature: "Recetario",         reason: "El encargado de cocina necesita consultar recetas desde su tablet", ts: "2026-05-27 16:40", status: "pending" },
-  { id: "req3", restaurantName: "Nicho Restaurant",requestedBy: "admin@nicho.app",       feature: "Pantalla TV",       reason: "Instalamos una pantalla nueva en la barra", ts: "2026-05-26 11:00", status: "approved" },
-  { id: "req4", restaurantName: "Sushi Zen",       requestedBy: "admin@sushizen.app",    feature: "Clientes — editar", reason: "Queremos que los meseros puedan agregar puntos manualmente", ts: "2026-05-24 14:20", status: "rejected", rejectReason: "Riesgo de manipulación de puntos. Usar sello QR en su lugar." },
-];
-
 // Configuración de seguridad por restaurante
 interface SecurityConfig {
   restaurantId: string;
@@ -196,16 +120,6 @@ interface SecurityConfig {
   ipWhitelist: boolean;
 }
 
-// Valores por defecto de seguridad: 8 h de sesión, máx 5 intentos fallidos, ventana 07:00-23:00.
-const SEED_SECURITY: SecurityConfig[] = SEED_RESTAURANTS.map((r) => ({
-  restaurantId: r.id,
-  sessionHours: 8,
-  pinRequired: false,
-  allowedStart: "07:00",
-  allowedEnd: "23:00",
-  maxFailedLogins: 5,
-  ipWhitelist: false,
-}));
 
 const PLAN_LABELS: Record<Plan, string>    = { trial: "Trial", basic: "Básico", premium: "Premium" };
 const PLAN_COLORS: Record<Plan, string>    = { trial: "info",  basic: "muted",  premium: "active"  };
@@ -392,27 +306,20 @@ function Restaurants({
     return filter === "all" ? s : s && r.plan === filter;
   });
 
-  // Alterna entre activo y suspendido. El modo mantenimiento se maneja desde la sección Maintenance.
   const toggleStatus = (r: Restaurant) => {
     const next: Status = r.status === "suspended" ? "active" : "suspended";
     setRestaurants((prev) => prev.map((x) => x.id === r.id ? { ...x, status: next } : x));
+    fetch(`/api/superadmin/restaurants/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: next }) }).catch(() => {})
     addAudit(next === "suspended" ? "Restaurante suspendido" : "Restaurante reactivado", r.name, "update", r.name);
     showToast(`${r.name} ${next === "suspended" ? "suspendido" : "reactivado"}`);
     setSelected(null);
   };
 
-  const addRestaurant = () => {
+  const addRestaurant = async () => {
     if (!newName.trim() || !newEmail.trim()) { showToast("Completa nombre y correo", "error"); return; }
-    const newR: Restaurant = {
-      id: `r${Date.now()}`, name: newName.trim(), plan: newPlan, status: "active",
-      users: 1, maxUsers: newPlan === "premium" ? 20 : newPlan === "basic" ? 5 : 3,
-      registeredAt: new Date().toISOString().split("T")[0],
-      balance: 0, nextPayment: "—", lastPayment: "—",
-      email: newEmail.trim(),
-      // Token de API generado localmente con base36 (12 chars). En producción se haría server-side.
-      notes: "", apiToken: `nch_live_${Math.random().toString(36).slice(2, 14)}`,
-      lastActive: "Recién registrado", loginCount: 0,
-    };
+    const res = await fetch('/api/superadmin/restaurants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newName.trim(), email: newEmail.trim(), plan: newPlan }) })
+    if (!res.ok) { showToast("Error al registrar restaurante", "error"); return; }
+    const newR: Restaurant = await res.json()
     setRestaurants((prev) => [...prev, newR]);
     addAudit("Restaurante registrado", `${newName} · Plan ${PLAN_LABELS[newPlan]}`, "create", newName);
     showToast(`${newName} registrado exitosamente`);
@@ -904,6 +811,7 @@ function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAu
   const saveEdit = () => {
     if (!draft) return;
     setPlanConfigs((prev) => prev.map((p) => p.id === draft.id ? draft : p));
+    fetch('/api/superadmin/plans', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: draft.id, price: draft.price, maxUsers: draft.maxUsers, features: draft.features, color: draft.color }) }).catch(() => {})
     addAudit("Plan editado", `${draft.name} — $${draft.price}/mes · ${draft.maxUsers} usuarios`, "billing");
     showToast(`Plan "${draft.name}" actualizado`);
     setEditing(null); setDraft(null);
@@ -1118,19 +1026,24 @@ function Discounts({ addAudit, showToast }: {
   addAudit: (action: string, details: string, type: AuditType, restaurant?: string) => void;
   showToast: (msg: string, type?: Toast["type"]) => void;
 }) {
-  const [codes, setCodes] = useState<DiscountCode[]>(SEED_DISCOUNTS);
+  const [codes, setCodes] = useState<DiscountCode[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ code: "", discount: 20, type: "%" as "%" | "$", maxUses: 50, expiresAt: "", note: "" });
 
-  // Genera un código aleatorio con prefijo NICHO + 5 caracteres base36 en mayúsculas.
+  useEffect(() => {
+    fetch('/api/superadmin/discounts').then(r => r.json()).then(d => { if (Array.isArray(d)) setCodes(d) }).catch(() => {})
+  }, []);
+
   const generate = () => {
     const random = "NICHO" + Math.random().toString(36).toUpperCase().slice(2, 7);
     setForm((p) => ({ ...p, code: random }));
   };
 
-  const create = () => {
+  const create = async () => {
     if (!form.code || !form.expiresAt) { showToast("Completa código y fecha", "error"); return; }
-    const nc: DiscountCode = { id: `d${Date.now()}`, ...form, uses: 0, active: true };
+    const res = await fetch('/api/superadmin/discounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, maxUses: form.maxUses }) })
+    if (!res.ok) { showToast("Error al crear código", "error"); return; }
+    const nc: DiscountCode = await res.json()
     setCodes((p) => [nc, ...p]);
     addAudit("Código de descuento creado", `${form.code} · ${form.discount}${form.type} · exp. ${form.expiresAt}`, "create");
     showToast(`Código ${form.code} creado`);
@@ -1138,10 +1051,10 @@ function Discounts({ addAudit, showToast }: {
     setShowForm(false);
   };
 
-  // Activa o desactiva el código sin eliminarlo (el historial de usos se conserva).
   const toggleActive = (id: string) => {
-    setCodes((p) => p.map((c) => c.id === id ? { ...c, active: !c.active } : c));
     const c = codes.find((x) => x.id === id)!;
+    setCodes((p) => p.map((x) => x.id === id ? { ...x, active: !x.active } : x));
+    fetch(`/api/superadmin/discounts/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: !c.active }) }).catch(() => {})
     showToast(`Código ${c.code} ${c.active ? "desactivado" : "activado"}`);
   };
 
@@ -1518,7 +1431,7 @@ function Permisos({ restaurants, addAudit, showToast }: {
     const init: Record<string, boolean> = {};
     [...EMPLOYEE_MODULES, ...USER_MODULES].forEach((m) => {
       init[`all_${m.id}`] = !m.locked;
-      SEED_RESTAURANTS.forEach((r) => { init[`${r.id}_${m.id}`] = !m.locked; });
+      restaurants.forEach((r) => { init[`${r.id}_${m.id}`] = !m.locked; });
     });
     return init;
   });
@@ -1666,26 +1579,27 @@ function Permisos({ restaurants, addAudit, showToast }: {
 
 // ─── Solicitudes de acceso ────────────────────────────────────────────────────
 
-function Solicitudes({ addAudit, showToast }: {
+function Solicitudes({ requests, setRequests, addAudit, showToast }: {
+  requests: AccessRequest[];
+  setRequests: React.Dispatch<React.SetStateAction<AccessRequest[]>>;
   addAudit: (action: string, details: string, type: AuditType, restaurant?: string) => void;
   showToast: (msg: string, type?: Toast["type"]) => void;
 }) {
-  const [requests, setRequests] = useState<AccessRequest[]>(SEED_REQUESTS);
   const [rejectModal, setRejectModal] = useState<AccessRequest | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [tab, setTab] = useState<"pending" | "approved" | "rejected">("pending");
 
-  // Aprobación inmediata sin razón requerida; el feature queda desbloqueado en el perfil del restaurante.
   const approve = (r: AccessRequest) => {
     setRequests((p) => p.map((x) => x.id === r.id ? { ...x, status: "approved" } : x));
+    fetch(`/api/superadmin/requests/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'approved' }) }).catch(() => {})
     addAudit("Solicitud aprobada", `${r.feature} — ${r.restaurantName}`, "update", r.restaurantName);
     showToast(`✅ Aprobado: ${r.feature} para ${r.restaurantName}`);
   };
 
-  // El rechazo requiere un motivo que se guarda en rejectReason y se muestra en la tarjeta.
   const reject = () => {
     if (!rejectModal) return;
     setRequests((p) => p.map((x) => x.id === rejectModal.id ? { ...x, status: "rejected", rejectReason } : x));
+    fetch(`/api/superadmin/requests/${rejectModal.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'rejected', rejectReason }) }).catch(() => {})
     addAudit("Solicitud rechazada", `${rejectModal.feature} — ${rejectModal.restaurantName}: ${rejectReason}`, "update", rejectModal.restaurantName);
     showToast(`Solicitud rechazada`, "error");
     setRejectModal(null); setRejectReason("");
@@ -1790,18 +1704,33 @@ function Seguridad({ restaurants, showToast, addAudit }: {
   showToast: (msg: string, type?: Toast["type"]) => void;
   addAudit: (action: string, details: string, type: AuditType, restaurant?: string) => void;
 }) {
-  const [configs, setConfigs] = useState<SecurityConfig[]>(SEED_SECURITY);
-  const [sel, setSel] = useState<string>(restaurants[0]?.id ?? "");
+  const [configs, setConfigs] = useState<SecurityConfig[]>([]);
+  const [sel, setSel] = useState<string>("");
 
-  const cfg = configs.find((c) => c.restaurantId === sel)!;
+  useEffect(() => {
+    fetch('/api/superadmin/security').then(r => r.json()).then(d => {
+      if (Array.isArray(d)) setConfigs(d)
+    }).catch(() => {})
+  }, []);
+
+  useEffect(() => {
+    if (!sel && restaurants.length > 0) setSel(restaurants[0].id)
+  }, [restaurants, sel]);
+
+  const cfg = configs.find((c) => c.restaurantId === sel);
   const restaurant = restaurants.find((r) => r.id === sel);
 
   const update = (field: keyof SecurityConfig, value: string | number | boolean) => {
-    setConfigs((p) => p.map((c) => c.restaurantId === sel ? { ...c, [field]: value } : c));
+    setConfigs((p) => {
+      const existing = p.find(c => c.restaurantId === sel)
+      if (existing) return p.map((c) => c.restaurantId === sel ? { ...c, [field]: value } : c)
+      return [...p, { restaurantId: sel, sessionHours: 8, pinRequired: false, allowedStart: '07:00', allowedEnd: '23:00', maxFailedLogins: 5, ipWhitelist: false, [field]: value }]
+    })
   };
 
-  // Registra el cambio en el log de auditoría. Sin persistencia en Supabase aún.
   const save = () => {
+    const current = configs.find(c => c.restaurantId === sel) ?? { restaurantId: sel, sessionHours: 8, pinRequired: false, allowedStart: '07:00', allowedEnd: '23:00', maxFailedLogins: 5, ipWhitelist: false }
+    fetch('/api/superadmin/security', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(current) }).catch(() => {})
     addAudit("Configuración de seguridad actualizada", `${restaurant?.name}`, "update", restaurant?.name);
     showToast(`Seguridad de ${restaurant?.name} guardada`);
   };
@@ -1949,17 +1878,22 @@ const NAV: { view: View; icon: string; label: string; section?: string }[] = [
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [view, setView]       = useState<View>("overview");
-  const [restaurants, setRestaurants] = useState<Restaurant[]>(SEED_RESTAURANTS);
-  const [auditLog, setAuditLog]             = useState<AuditEntry[]>(SEED_AUDIT);
-  const [planConfigs, setPlanConfigs]       = useState<PlanConfig[]>(SEED_PLANS);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [auditLog, setAuditLog]             = useState<AuditEntry[]>([]);
+  const [planConfigs, setPlanConfigs]       = useState<PlanConfig[]>([]);
+  const [requests, setRequests]             = useState<AccessRequest[]>([]);
   const [toast, setToast]                   = useState<Toast | null>(null);
   const [alertDismissed, setAlertDismissed] = useState(false);
   const [activeUser, setActiveUser]         = useState("Super Admin");
 
   useEffect(() => {
-    // Recuperamos el nombre del superadmin que se guardó en el login para mostrarlo en el sidebar.
     const u = localStorage.getItem('sa_user')
     if (u) setActiveUser(u.charAt(0).toUpperCase() + u.slice(1))
+    // Carga inicial de todos los datos desde Supabase
+    fetch('/api/superadmin/restaurants').then(r => r.json()).then(d => { if (Array.isArray(d)) setRestaurants(d) }).catch(() => {})
+    fetch('/api/superadmin/audit').then(r => r.json()).then(d => { if (Array.isArray(d)) setAuditLog(d) }).catch(() => {})
+    fetch('/api/superadmin/plans').then(r => r.json()).then(d => { if (Array.isArray(d)) setPlanConfigs(d) }).catch(() => {})
+    fetch('/api/superadmin/requests').then(r => r.json()).then(d => { if (Array.isArray(d)) setRequests(d) }).catch(() => {})
   }, []);
 
   // Auto-oculta el toast después de 3 segundos.
@@ -1968,12 +1902,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  // Agrega una entrada al log de auditoría con timestamp local.
-  // La IP es fija (obfuscada) porque no tenemos acceso a la IP real del servidor.
+  // Agrega entrada al log en el estado local Y persiste en Supabase.
   const addAudit = useCallback((action: string, details: string, type: AuditType, restaurant = "—") => {
     const now = new Date();
     const ts = `${now.toISOString().split("T")[0]} ${now.toTimeString().slice(0, 5)}`;
-    setAuditLog((prev) => [{ id: `a${Date.now()}`, ts, user: "superadmin", restaurant, action, details, ip: "187.xxx.12", type }, ...prev]);
+    const entry = { id: `a${Date.now()}`, ts, user: "superadmin", restaurant, action, details, ip: "187.xxx.12", type };
+    setAuditLog((prev) => [entry, ...prev]);
+    fetch('/api/superadmin/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, details, type, restaurant }) }).catch(() => {})
   }, []);
 
   // Banner rojo de deuda: visible hasta que el superadmin lo cierre manualmente en la sesión.
@@ -1989,7 +1924,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       case "restaurants":   return <Restaurants {...shared} />;
       case "flags":         return <FeatureFlags restaurants={restaurants} addAudit={addAudit} showToast={showToast} />;
       case "permisos":      return <Permisos restaurants={restaurants} addAudit={addAudit} showToast={showToast} />;
-      case "solicitudes":   return <Solicitudes addAudit={addAudit} showToast={showToast} />;
+      case "solicitudes":   return <Solicitudes requests={requests} setRequests={setRequests} addAudit={addAudit} showToast={showToast} />;
       case "seguridad":     return <Seguridad restaurants={restaurants} addAudit={addAudit} showToast={showToast} />;
       case "billing":       return <Billing {...shared} />;
       case "audit":         return <AuditLog log={auditLog} showToast={showToast} />;
@@ -2023,8 +1958,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 {item.view === "billing" && debtRestaurants.length > 0 && (
                   <span className="sa-nav-badge">{debtRestaurants.length}</span>
                 )}
-                {item.view === "solicitudes" && SEED_REQUESTS.filter((r) => r.status === "pending").length > 0 && (
-                  <span className="sa-nav-badge">{SEED_REQUESTS.filter((r) => r.status === "pending").length}</span>
+                {item.view === "solicitudes" && requests.filter((r) => r.status === "pending").length > 0 && (
+                  <span className="sa-nav-badge">{requests.filter((r) => r.status === "pending").length}</span>
                 )}
               </button>
             </div>

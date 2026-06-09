@@ -1,3 +1,5 @@
+// Autenticación del SuperAdmin: credenciales hardcodeadas con SHA-256(SALT+password).
+// No usa la tabla admins de Supabase para mantener acceso incluso si la BD falla.
 import { createHash } from 'crypto'
 import { cookies } from 'next/headers'
 

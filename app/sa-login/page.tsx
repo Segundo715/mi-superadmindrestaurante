@@ -1,5 +1,7 @@
 'use client'
 
+// Login del SuperAdmin: POST /api/superadmin/auth escribe cookie httpOnly sa_session.
+// Credenciales hardcodeadas en el servidor (USERS en auth/route.ts); no usa tabla admins.
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
