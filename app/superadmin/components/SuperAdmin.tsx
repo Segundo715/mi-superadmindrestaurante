@@ -457,11 +457,13 @@ function FeatureFlags({
   const CONNECTED_RESTAURANT = "r1"; // Nicho Restaurant → tabla settings, key: feature_flags
 
   useEffect(() => {
-    // Al montar, sincronizamos el estado local con lo que está guardado en Supabase.
-    // Usamos la API pública de mi-proyecto porque el superadmin está en otro dominio.
+    // Leemos directo de Supabase vía /api/save-flags (misma origin → sin CORS).
+    // Antes se leía de mi-proyecto.vercel.app/api/features, que tiene CORS restringido
+    // al dominio de producción y fallaba silenciosamente en local, dejando todos los
+    // flags en su valor por defecto (true) tras cada recarga.
 
     // Cargar flags de Nicho (r1) = Global
-    fetch("https://mi-proyecto-phi-ecru.vercel.app/api/features")
+    fetch("/api/save-flags?key=feature_flags")
       .then(r => r.json())
       .then((saved: Record<string, boolean>) => {
         setFlags(prev => {
@@ -474,8 +476,8 @@ function FeatureFlags({
           return next;
         });
       }).catch(() => {});
-    // Cargar flags de Resta3 (también en all_* para mostrar en Nicho/Global)
-    fetch("https://mi-proyecto-phi-ecru.vercel.app/api/resta3/features")
+    // Cargar flags de Resta3
+    fetch("/api/save-flags?key=feature_flags_resta3")
       .then(r => r.json())
       .then((saved: Record<string, boolean>) => {
         setFlags(prev => {
@@ -1439,29 +1441,30 @@ function Permisos({ restaurants, addAudit, showToast }: {
   const CONNECTED_RESTAURANT = "r1"; // Solo Nicho (r1) tiene app real; los demás restaurantes son demo.
 
   useEffect(() => {
-    // Cargamos los permisos actuales desde Supabase al montar el componente,
-    // para que los toggles reflejen lo que los empleados/usuarios ya tienen activo.
-    fetch("https://mi-proyecto-phi-ecru.vercel.app/api/permissions")
-      .then(r => r.json())
-      .then((saved: { employee: Record<string, boolean>; user: Record<string, boolean> }) => {
-        setFlags(prev => {
-          const next = { ...prev };
-          // Solo sincronizamos las keys que ya existen en Supabase (no sobreescribimos defaults)
-          EMPLOYEE_MODULES.forEach(m => {
-            if (m.id in saved.employee) {
-              next[`all_${m.id}`] = saved.employee[m.id];
-              next[`${CONNECTED_RESTAURANT}_${m.id}`] = saved.employee[m.id];
-            }
-          });
-          USER_MODULES.forEach(m => {
-            if (m.id in saved.user) {
-              next[`all_${m.id}`] = saved.user[m.id];
-              next[`${CONNECTED_RESTAURANT}_${m.id}`] = saved.user[m.id];
-            }
-          });
-          return next;
+    // Leemos employee_permissions y user_permissions en paralelo vía /api/save-flags
+    // (misma origin → sin CORS). Mismo motivo que en FeatureFlags.
+    Promise.all([
+      fetch("/api/save-flags?key=employee_permissions").then(r => r.json()),
+      fetch("/api/save-flags?key=user_permissions").then(r => r.json()),
+    ]).then(([employee, user]: [Record<string, boolean>, Record<string, boolean>]) => {
+      setFlags(prev => {
+        const next = { ...prev };
+        // Solo sincronizamos las keys que ya existen en Supabase (no sobreescribimos defaults)
+        EMPLOYEE_MODULES.forEach(m => {
+          if (m.id in employee) {
+            next[`all_${m.id}`] = employee[m.id];
+            next[`${CONNECTED_RESTAURANT}_${m.id}`] = employee[m.id];
+          }
         });
-      }).catch(() => {});
+        USER_MODULES.forEach(m => {
+          if (m.id in user) {
+            next[`all_${m.id}`] = user[m.id];
+            next[`${CONNECTED_RESTAURANT}_${m.id}`] = user[m.id];
+          }
+        });
+        return next;
+      });
+    }).catch(() => {});
   }, []);
 
   const toggle = (m: typeof modules[0]) => {
