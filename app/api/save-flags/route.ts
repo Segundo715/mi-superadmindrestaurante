@@ -36,11 +36,11 @@ export async function GET(req: Request) {
     .eq('key', key)
     .limit(1)
 
-  if (error) return Response.json({ error: error.message }, { status: 500, headers: { 'Cache-Control': 'no-store' } })
+  if (error) return Response.json({ error: error.message }, { status: 500 })
 
   const row = Array.isArray(data) ? data[0] : data
   const flags = parseValue(row?.value)
-  return Response.json(flags, { headers: { 'Cache-Control': 'no-store' } })
+  return Response.json(flags)
 }
 
 export async function POST(req: Request) {
