@@ -78,12 +78,10 @@ const ACCIONES: Record<string, () => Promise<string>> = {
 
 interface Boton { id: string; label: string; desc: string; href?: string; color: string; emoji: string }
 
-const SECCIONES: { titulo: string; badge: string; badgeColor: string; sub: string; botones: Boton[] }[] = [
+const SECCIONES: { titulo: string; badge: string; badgeColor: string; badgeBg: string; sub: string; botones: Boton[] }[] = [
   {
-    titulo: 'Cliente',
-    badge: 'FASE',
-    badgeColor: '#f59e0b',
-    sub: 'Controla qué tabs ve el cliente en su teléfono en tiempo real',
+    titulo: 'Cliente', badge: 'FASE', badgeColor: '#f59e0b', badgeBg: 'rgba(245,158,11,0.15)',
+    sub: 'Controla qué tabs ve el cliente en su teléfono',
     botones: [
       { id: 'fase1', emoji: '①', label: 'Solo Menú',      desc: 'Oculta Tarjeta y Reseñas',  href: `${RESTO_URL}/menu`,   color: '#f59e0b' },
       { id: 'fase2', emoji: '②', label: 'Menú + Tarjeta', desc: 'Agrega tarjeta de lealtad', href: `${RESTO_URL}/card`,   color: '#10b981' },
@@ -91,10 +89,8 @@ const SECCIONES: { titulo: string; badge: string; badgeColor: string; sub: strin
     ],
   },
   {
-    titulo: 'Empleado',
-    badge: 'DATOS',
-    badgeColor: '#06b6d4',
-    sub: 'Inserta datos para mostrar el panel del empleado',
+    titulo: 'Empleado', badge: 'DATOS', badgeColor: '#06b6d4', badgeBg: 'rgba(6,182,212,0.15)',
+    sub: 'Inserta datos para el panel del empleado',
     botones: [
       { id: 'menu', emoji: '🍽️', label: 'Menú',         desc: '4 platillos demo',        href: `${RESTO_URL}/menu`,             color: '#f59e0b' },
       { id: 'rec',  emoji: '📖', label: 'Recetas',       desc: '2 recetas con pasos',     href: `${RESTO_URL}/employee/recipes`, color: '#06b6d4' },
@@ -103,10 +99,8 @@ const SECCIONES: { titulo: string; badge: string; badgeColor: string; sub: strin
     ],
   },
   {
-    titulo: 'Admin',
-    badge: 'DATOS',
-    badgeColor: '#ec4899',
-    sub: 'Inserta datos para mostrar el panel de administrador',
+    titulo: 'Admin', badge: 'DATOS', badgeColor: '#ec4899', badgeBg: 'rgba(236,72,153,0.15)',
+    sub: 'Inserta datos para el panel de administrador',
     botones: [
       { id: 'res',  emoji: '⭐', label: 'Reseñas',     desc: '1 buena + 1 mala · alerta', href: `${RESTO_URL}/admin/reviews`, color: '#ec4899' },
       { id: 'dash', emoji: '📊', label: 'Dashboard',   desc: 'Ventas y analíticas',        href: `${RESTO_URL}/admin`,         color: '#6366f1' },
@@ -145,147 +139,134 @@ export default function DemoControlPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#0d1117', color: '#e6edf3' }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 24px 64px' }}>
+    <div className="min-h-screen bg-[#0d1117] text-[#e6edf3]">
+      <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 sm:py-12 pb-20 space-y-10">
 
         {/* Header */}
-        <div style={{ marginBottom: 48, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
-          <div>
-            <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#3fb950', marginBottom: 8 }}>
-              ▶ NICHO Platform · Control de Demo
-            </p>
-            <h1 style={{ fontSize: 32, fontWeight: 900, color: '#fff', lineHeight: 1.1, margin: 0 }}>
-              Presentación por Fases
-            </h1>
-            <p style={{ fontSize: 14, color: '#8b949e', marginTop: 8 }}>
-              Activa datos y controla lo que ve cada audiencia en{' '}
-              <a href={RESTO_URL} target="_blank" style={{ color: '#3fb950', textDecoration: 'none' }}>
-                mi-proyecto-phi-ecru.vercel.app ↗
-              </a>
-            </p>
+        <header className="space-y-3">
+          <p className="text-[11px] font-black tracking-widest uppercase text-green-400">
+            ▶ NICHO Platform · Control de Demo
+          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight">
+                Presentación por Fases
+              </h1>
+              <p className="text-sm text-[#8b949e] mt-1">
+                Activa datos en{' '}
+                <a href={RESTO_URL} target="_blank" className="text-green-400 underline underline-offset-2">
+                  mi-proyecto-phi-ecru.vercel.app ↗
+                </a>
+              </p>
+            </div>
+            <a href={`${RESTO_URL}/admin`} target="_blank"
+              className="shrink-0 text-xs sm:text-sm font-bold text-[#c9d1d9] bg-[#21262d] border border-[#30363d] rounded-xl px-3 py-2 sm:px-4 sm:py-2.5 no-underline whitespace-nowrap hover:border-[#6e7681] transition-colors">
+              Admin ↗
+            </a>
           </div>
-          <a href={`${RESTO_URL}/admin`} target="_blank"
-            style={{ flexShrink: 0, fontSize: 13, fontWeight: 700, color: '#c9d1d9', backgroundColor: '#21262d', border: '1px solid #30363d', borderRadius: 10, padding: '10px 18px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-            Abrir Admin ↗
-          </a>
-        </div>
+        </header>
 
         {/* Secciones */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
-          {SECCIONES.map(sec => (
-            <section key={sec.titulo}>
-              {/* Section header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid #21262d' }}>
-                <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 10px', borderRadius: 6, backgroundColor: `${sec.badgeColor}22`, color: sec.badgeColor }}>
-                  {sec.badge}
-                </span>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#fff' }}>{sec.titulo}</h2>
-                <p style={{ margin: 0, fontSize: 13, color: '#8b949e' }}>{sec.sub}</p>
-              </div>
+        {SECCIONES.map(sec => (
+          <section key={sec.titulo} className="space-y-4">
 
-              {/* Cards grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
-                {sec.botones.map(b => {
-                  const st = estados[b.id] ?? 'idle'
-                  const isDone = st === 'done'
-                  const isLoading = st === 'loading'
-                  const isError = st === 'error'
-                  return (
-                    <div key={b.id} style={{
+            {/* Section header */}
+            <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-[#21262d]">
+              <span className="text-[11px] font-black tracking-wider px-2.5 py-1 rounded-md"
+                style={{ backgroundColor: sec.badgeBg, color: sec.badgeColor }}>
+                {sec.badge}
+              </span>
+              <h2 className="text-base sm:text-lg font-black text-white">{sec.titulo}</h2>
+              <p className="text-xs sm:text-sm text-[#8b949e] w-full sm:w-auto">{sec.sub}</p>
+            </div>
+
+            {/* Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {sec.botones.map(b => {
+                const st = estados[b.id] ?? 'idle'
+                const isDone = st === 'done'
+                const isLoading = st === 'loading'
+                const isError = st === 'error'
+                return (
+                  <div key={b.id}
+                    className="rounded-2xl p-4 sm:p-5 flex flex-col gap-3 transition-colors"
+                    style={{
                       backgroundColor: '#161b22',
-                      border: `1px solid ${isDone ? `${b.color}44` : '#30363d'}`,
-                      borderRadius: 16,
-                      padding: 20,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 14,
-                      transition: 'border-color 0.2s',
+                      border: `1px solid ${isDone ? `${b.color}55` : '#30363d'}`,
                     }}>
-                      {/* Card header */}
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontSize: 22, lineHeight: 1 }}>{b.emoji}</span>
-                          <div>
-                            <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#fff' }}>{b.label}</p>
-                            <p style={{ margin: 0, fontSize: 12, color: '#8b949e', marginTop: 2 }}>{b.desc}</p>
-                          </div>
-                        </div>
-                        {isDone && (
-                          <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 20, backgroundColor: '#1a4731', color: '#3fb950', flexShrink: 0 }}>✓ OK</span>
-                        )}
-                      </div>
 
-                      {/* Feedback message */}
-                      {msgs[b.id] && (
-                        <p style={{
-                          margin: 0, fontSize: 12, padding: '8px 12px', borderRadius: 8,
-                          backgroundColor: isDone ? '#1a4731' : '#4a1717',
+                    {/* Card top */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl leading-none">{b.emoji}</span>
+                        <div>
+                          <p className="text-sm sm:text-base font-black text-white leading-tight">{b.label}</p>
+                          <p className="text-xs text-[#8b949e] mt-0.5">{b.desc}</p>
+                        </div>
+                      </div>
+                      {isDone && (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 bg-green-900/40 text-green-400">
+                          ✓ OK
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Feedback */}
+                    {msgs[b.id] && (
+                      <p className="text-xs rounded-lg px-3 py-2"
+                        style={{
+                          backgroundColor: isDone ? 'rgba(16,185,129,0.12)' : 'rgba(248,81,73,0.12)',
                           color: isDone ? '#3fb950' : '#f85149',
                         }}>
-                          {msgs[b.id]}
-                        </p>
+                        {msgs[b.id]}
+                      </p>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex gap-2 mt-auto">
+                      <button onClick={() => ejecutar(b.id)} disabled={isLoading}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-black disabled:opacity-40 active:scale-95 transition-all"
+                        style={{
+                          backgroundColor: isDone ? `${b.color}22` : isError ? 'rgba(248,81,73,0.15)' : b.color,
+                          color: isDone ? b.color : isError ? '#f85149' : '#000',
+                        }}>
+                        {isLoading ? '⏳ Cargando…' : isDone ? '↺ Repetir' : '⚡ Activar'}
+                      </button>
+                      {b.href && (
+                        <a href={b.href} target="_blank" rel="noopener noreferrer"
+                          className="px-4 py-2.5 rounded-xl text-sm font-bold text-[#8b949e] bg-[#21262d] border border-[#30363d] no-underline hover:text-white hover:border-[#6e7681] transition-colors whitespace-nowrap">
+                          Ver ↗
+                        </a>
                       )}
-
-                      {/* Buttons */}
-                      <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
-                        <button onClick={() => ejecutar(b.id)} disabled={isLoading}
-                          style={{
-                            flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 13, fontWeight: 800,
-                            border: 'none', cursor: isLoading ? 'not-allowed' : 'pointer',
-                            backgroundColor: isDone ? `${b.color}22` : isError ? '#4a1717' : b.color,
-                            color: isDone ? b.color : isError ? '#f85149' : '#000',
-                            opacity: isLoading ? 0.5 : 1,
-                            transition: 'all 0.15s',
-                          }}>
-                          {isLoading ? '⏳ Cargando…' : isDone ? '↺ Repetir' : '⚡ Activar'}
-                        </button>
-                        {b.href && (
-                          <a href={b.href} target="_blank" rel="noopener noreferrer"
-                            style={{
-                              padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700,
-                              color: '#8b949e', backgroundColor: '#21262d', border: '1px solid #30363d',
-                              textDecoration: 'none', whiteSpace: 'nowrap',
-                            }}>
-                            Ver ↗
-                          </a>
-                        )}
-                      </div>
                     </div>
-                  )
-                })}
-              </div>
-            </section>
-          ))}
-
-          {/* Admin links */}
-          <section>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid #21262d' }}>
-              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 10px', borderRadius: 6, backgroundColor: '#6366f122', color: '#818cf8' }}>
-                ACCESOS
-              </span>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#fff' }}>Panel Admin</h2>
-              <p style={{ margin: 0, fontSize: 13, color: '#8b949e' }}>Abre cada sección del restaurante en una pestaña nueva</p>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
-              {ADMIN_LINKS.map(l => (
-                <a key={l.href} href={l.href} target="_blank" rel="noopener noreferrer"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px',
-                    backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: 12,
-                    textDecoration: 'none', transition: 'border-color 0.15s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#6e7681')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#30363d')}
-                >
-                  <span style={{ fontSize: 18 }}>{l.emoji}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#c9d1d9' }}>{l.label} ↗</span>
-                </a>
-              ))}
+                  </div>
+                )
+              })}
             </div>
           </section>
-        </div>
+        ))}
 
-        <p style={{ textAlign: 'center', fontSize: 11, color: '#484f58', marginTop: 48 }}>
+        {/* Admin links */}
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-[#21262d]">
+            <span className="text-[11px] font-black tracking-wider px-2.5 py-1 rounded-md bg-[#6366f122] text-[#818cf8]">
+              ACCESOS
+            </span>
+            <h2 className="text-base sm:text-lg font-black text-white">Panel Admin</h2>
+            <p className="text-xs sm:text-sm text-[#8b949e] w-full sm:w-auto">Abre cada sección en una pestaña nueva</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
+            {ADMIN_LINKS.map(l => (
+              <a key={l.href} href={l.href} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2.5 p-3 sm:p-4 rounded-xl bg-[#161b22] border border-[#30363d] no-underline hover:border-[#6e7681] transition-colors">
+                <span className="text-lg sm:text-xl">{l.emoji}</span>
+                <span className="text-xs sm:text-sm font-bold text-[#c9d1d9] leading-tight">{l.label} ↗</span>
+              </a>
+            ))}
+          </div>
+        </section>
+
+        <p className="text-center text-[11px] text-[#484f58]">
           /superadmin/demo · NICHO Platform
         </p>
       </div>
