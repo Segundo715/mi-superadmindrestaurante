@@ -7,7 +7,8 @@ import { createHmac } from 'node:crypto'
 export const dynamic = 'force-dynamic'
 
 const RESTO_URL    = 'https://mi-proyecto-phi-ecru.vercel.app'
-const ADMIN_SECRET = process.env.ADMIN_SECRET ?? 'restaurant-secret-2024'
+// En Vercel de mi-proyecto ADMIN_SECRET está vacío (""); usamos el mismo valor para que el HMAC coincida.
+const ADMIN_SECRET = process.env.ADMIN_SECRET ?? ''
 
 // Genera el mismo token que usa mi-proyecto/lib/auth.ts — así los routes lo validan sin cambios.
 function makeSession(adminId: string): string {
