@@ -1881,6 +1881,7 @@ const NAV: { view: View; icon: string; label: string; section?: string }[] = [
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [view, setView]       = useState<View>("overview");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [auditLog, setAuditLog]             = useState<AuditEntry[]>([]);
   const [planConfigs, setPlanConfigs]       = useState<PlanConfig[]>([]);
@@ -1942,20 +1943,30 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     <div className="sa-app">
       {toast && <ToastBanner toast={toast} />}
 
-      <aside className="sa-sidebar">
+      {/* Overlay oscuro detrás del sidebar en móvil — cierra al tocar fuera */}
+      {sidebarOpen && (
+        <div className="sa-overlay" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      <aside className={`sa-sidebar${sidebarOpen ? " sa-sidebar--open" : ""}`}>
         <div className="sa-sidebar-header">
           <div className="sa-sidebar-logo">🛡️</div>
-          <div>
+          <div style={{ flex: 1 }}>
             <div className="sa-brand-name">NICHO</div>
             <div className="sa-brand-sub">Super Admin</div>
             <div className="sa-badge-super">SUPERADMIN</div>
           </div>
+          {/* Botón X para cerrar el sidebar en móvil */}
+          <button className="sa-sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Cerrar menú">✕</button>
         </div>
         <nav className="sa-nav">
           {NAV.map((item) => (
             <div key={item.view}>
               {item.section && <div className="sa-nav-section">{item.section}</div>}
-              <button className={`sa-nav-item${view === item.view ? " active" : ""}`} onClick={() => setView(item.view)}>
+              <button
+                className={`sa-nav-item${view === item.view ? " active" : ""}`}
+                onClick={() => { setView(item.view); setSidebarOpen(false); }}
+              >
                 <span className="sa-nav-icon">{item.icon}</span>
                 {item.label}
                 {item.view === "billing" && debtRestaurants.length > 0 && (
@@ -1986,6 +1997,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           </div>
         )}
         <header className="sa-topbar">
+          {/* Hamburguesa — visible solo en móvil (CSS lo oculta en desktop) */}
+          <button className="sa-hamburger" onClick={() => setSidebarOpen(true)} aria-label="Abrir menú">
+            <span /><span /><span />
+          </button>
           <div>
             <div className="sa-topbar-title">{NAV.find((n) => n.view === view)?.icon} {NAV.find((n) => n.view === view)?.label}</div>
             <div className="sa-topbar-sub">NICHO Platform · Super Admin</div>
