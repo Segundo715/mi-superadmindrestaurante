@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 
-// URL del proyecto de restaurante (mi-proyecto)
 const RESTO_URL = 'https://mi-proyecto-phi-ecru.vercel.app'
 
 type St = 'idle' | 'loading' | 'done' | 'error'
@@ -17,10 +16,7 @@ const NAV_FASES = {
   3: { ...NAV_BASE, tabs: [{ id: 'menu', label: 'Menú', href: '/menu', icon: '' }, { id: 'card', label: 'Tarjeta', href: '/card', icon: '' }, { id: 'review', label: 'Reseñas', href: '/review', icon: '' }] },
 }
 
-// Llama a la API del proyecto restaurante usando el endpoint público de settings
 async function setNavFase(nav: object) {
-  // El endpoint /api/settings POST requiere sesión admin del restaurante.
-  // Si no funciona, usa el botón "Ver ↗" para abrir /admin/demo directamente.
   const r = await fetch(`${RESTO_URL}/api/settings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -80,51 +76,56 @@ const ACCIONES: Record<string, () => Promise<string>> = {
   dash: async () => 'Usa Ver ↗ para abrir el dashboard del restaurante',
 }
 
-interface Boton { id: string; label: string; desc: string; href?: string; color: string }
-interface Link  { label: string; href: string; desc: string }
+interface Boton { id: string; label: string; desc: string; href?: string; color: string; emoji: string }
 
-const ADMIN_LINKS: Link[] = [
-  { label: '📊 Dashboard',     href: `${RESTO_URL}/admin`,               desc: 'Resumen general' },
-  { label: '📈 Analíticas',    href: `${RESTO_URL}/admin/analytics`,     desc: 'Ventas por día' },
-  { label: '⭐ Reseñas',       href: `${RESTO_URL}/admin/reviews`,       desc: 'Buenas y malas' },
-  { label: '📦 Inventario',    href: `${RESTO_URL}/admin/inventario`,    desc: 'Stock bajo' },
-  { label: '🍽️ Menú',         href: `${RESTO_URL}/admin/menu`,          desc: 'Gestión de platillos' },
-  { label: '🃏 Tarjetas',      href: `${RESTO_URL}/admin/tarjetas`,      desc: 'Lealtad' },
-  { label: '👥 Clientes',      href: `${RESTO_URL}/admin/customers`,     desc: 'CRM' },
-  { label: '📺 TV',            href: `${RESTO_URL}/admin/tv`,            desc: 'Señalización digital' },
-  { label: '🪑 Reservaciones', href: `${RESTO_URL}/admin/reservaciones`, desc: 'Plano de mesas' },
-  { label: '⚙️ Config',        href: `${RESTO_URL}/admin/configuracion`, desc: 'Logo y colores' },
-]
-
-const SECCIONES = [
+const SECCIONES: { titulo: string; badge: string; badgeColor: string; sub: string; botones: Boton[] }[] = [
   {
-    titulo: '👥 Cliente — Fases de visibilidad',
+    titulo: 'Cliente',
+    badge: 'FASE',
+    badgeColor: '#f59e0b',
     sub: 'Controla qué tabs ve el cliente en su teléfono en tiempo real',
     botones: [
-      { id: 'fase1', label: '① Solo Menú',      desc: 'Oculta Tarjeta y Reseñas',  href: `${RESTO_URL}/menu`,   color: '#f59e0b' },
-      { id: 'fase2', label: '② Menú + Tarjeta', desc: 'Agrega tarjeta de lealtad', href: `${RESTO_URL}/card`,   color: '#10b981' },
-      { id: 'fase3', label: '③ Todo visible',   desc: 'Agrega reseñas',            href: `${RESTO_URL}/review`, color: '#a78bfa' },
-    ] as Boton[],
+      { id: 'fase1', emoji: '①', label: 'Solo Menú',      desc: 'Oculta Tarjeta y Reseñas',  href: `${RESTO_URL}/menu`,   color: '#f59e0b' },
+      { id: 'fase2', emoji: '②', label: 'Menú + Tarjeta', desc: 'Agrega tarjeta de lealtad', href: `${RESTO_URL}/card`,   color: '#10b981' },
+      { id: 'fase3', emoji: '③', label: 'Todo visible',   desc: 'Menú · Tarjeta · Reseñas',  href: `${RESTO_URL}/review`, color: '#a78bfa' },
+    ],
   },
   {
-    titulo: '👷 Empleado — Datos de demo',
+    titulo: 'Empleado',
+    badge: 'DATOS',
+    badgeColor: '#06b6d4',
     sub: 'Inserta datos para mostrar el panel del empleado',
     botones: [
-      { id: 'menu', label: '🍽️ Menú',         desc: '4 platillos demo',         href: `${RESTO_URL}/menu`,             color: '#f59e0b' },
-      { id: 'rec',  label: '📖 Recetas',       desc: '2 recetas con pasos',      href: `${RESTO_URL}/employee/recipes`, color: '#06b6d4' },
-      { id: 'ped',  label: '📦 Pedido activo', desc: 'Mesa 4 — pendiente $330',  href: `${RESTO_URL}/employee/orders`,  color: '#8b5cf6' },
-      { id: 'leal', label: '🃏 Lealtad',       desc: 'Cliente con 4 sellos',     href: `${RESTO_URL}/employee`,         color: '#f97316' },
-    ] as Boton[],
+      { id: 'menu', emoji: '🍽️', label: 'Menú',         desc: '4 platillos demo',        href: `${RESTO_URL}/menu`,             color: '#f59e0b' },
+      { id: 'rec',  emoji: '📖', label: 'Recetas',       desc: '2 recetas con pasos',     href: `${RESTO_URL}/employee/recipes`, color: '#06b6d4' },
+      { id: 'ped',  emoji: '📦', label: 'Pedido activo', desc: 'Mesa 4 · $330 pendiente', href: `${RESTO_URL}/employee/orders`,  color: '#8b5cf6' },
+      { id: 'leal', emoji: '🃏', label: 'Lealtad',       desc: 'Cliente con 4 sellos',    href: `${RESTO_URL}/employee`,         color: '#f97316' },
+    ],
   },
   {
-    titulo: '👑 Admin — Datos de demo',
+    titulo: 'Admin',
+    badge: 'DATOS',
+    badgeColor: '#ec4899',
     sub: 'Inserta datos para mostrar el panel de administrador',
     botones: [
-      { id: 'res',  label: '⭐ Reseñas',     desc: '1 buena + 1 mala (alerta)', href: `${RESTO_URL}/admin/reviews`, color: '#ec4899' },
-      { id: 'dash', label: '📊 Dashboard',   desc: 'Ventas y analíticas',       href: `${RESTO_URL}/admin`,         color: '#6366f1' },
-      { id: 'tv',   label: '📺 Pantalla TV', desc: '3 slides de ofertas',       href: `${RESTO_URL}/admin/tv`,      color: '#14b8a6' },
-    ] as Boton[],
+      { id: 'res',  emoji: '⭐', label: 'Reseñas',     desc: '1 buena + 1 mala · alerta', href: `${RESTO_URL}/admin/reviews`, color: '#ec4899' },
+      { id: 'dash', emoji: '📊', label: 'Dashboard',   desc: 'Ventas y analíticas',        href: `${RESTO_URL}/admin`,         color: '#6366f1' },
+      { id: 'tv',   emoji: '📺', label: 'Pantalla TV', desc: '3 slides de ofertas',        href: `${RESTO_URL}/admin/tv`,      color: '#14b8a6' },
+    ],
   },
+]
+
+const ADMIN_LINKS = [
+  { emoji: '📊', label: 'Dashboard',     href: `${RESTO_URL}/admin` },
+  { emoji: '📈', label: 'Analíticas',    href: `${RESTO_URL}/admin/analytics` },
+  { emoji: '⭐', label: 'Reseñas',       href: `${RESTO_URL}/admin/reviews` },
+  { emoji: '🍽️', label: 'Menú',          href: `${RESTO_URL}/admin/menu` },
+  { emoji: '🃏', label: 'Tarjetas',      href: `${RESTO_URL}/admin/tarjetas` },
+  { emoji: '👥', label: 'Clientes',      href: `${RESTO_URL}/admin/customers` },
+  { emoji: '📺', label: 'TV',            href: `${RESTO_URL}/admin/tv` },
+  { emoji: '🪑', label: 'Reservaciones', href: `${RESTO_URL}/admin/reservaciones` },
+  { emoji: '📦', label: 'Inventario',    href: `${RESTO_URL}/admin/inventario` },
+  { emoji: '⚙️', label: 'Config',        href: `${RESTO_URL}/admin/configuracion` },
 ]
 
 export default function DemoControlPage() {
@@ -138,101 +139,153 @@ export default function DemoControlPage() {
       setMsgs(p => ({ ...p, [id]: msg }))
       setEstados(p => ({ ...p, [id]: 'done' }))
     } catch (e: unknown) {
-      setMsgs(p => ({ ...p, [id]: e instanceof Error ? e.message : 'Error' }))
+      setMsgs(p => ({ ...p, [id]: e instanceof Error ? e.message : 'Error desconocido' }))
       setEstados(p => ({ ...p, [id]: 'error' }))
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#0d1117] p-5">
-      <div className="max-w-[960px] mx-auto space-y-8">
+    <div className="min-h-screen" style={{ backgroundColor: '#0d1117', color: '#e6edf3' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 24px 64px' }}>
 
         {/* Header */}
-        <div className="pt-2 flex items-center justify-between">
+        <div style={{ marginBottom: 48, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
           <div>
-            <p className="text-xs font-black uppercase tracking-widest text-green-400 mb-1">
-              ▶ Control de Demo — Restaurante
+            <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#3fb950', marginBottom: 8 }}>
+              ▶ NICHO Platform · Control de Demo
             </p>
-            <h1 className="text-2xl font-black text-white">Presentación por Fases</h1>
-            <p className="text-sm text-zinc-400 mt-0.5">
+            <h1 style={{ fontSize: 32, fontWeight: 900, color: '#fff', lineHeight: 1.1, margin: 0 }}>
+              Presentación por Fases
+            </h1>
+            <p style={{ fontSize: 14, color: '#8b949e', marginTop: 8 }}>
               Activa datos y controla lo que ve cada audiencia en{' '}
-              <a href={RESTO_URL} target="_blank" className="text-green-400 hover:underline">
+              <a href={RESTO_URL} target="_blank" style={{ color: '#3fb950', textDecoration: 'none' }}>
                 mi-proyecto-phi-ecru.vercel.app ↗
               </a>
             </p>
           </div>
           <a href={`${RESTO_URL}/admin`} target="_blank"
-            className="text-xs px-4 py-2 rounded-xl font-bold text-white bg-zinc-800 hover:bg-zinc-700 transition-colors">
+            style={{ flexShrink: 0, fontSize: 13, fontWeight: 700, color: '#c9d1d9', backgroundColor: '#21262d', border: '1px solid #30363d', borderRadius: 10, padding: '10px 18px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
             Abrir Admin ↗
           </a>
         </div>
 
         {/* Secciones */}
-        {SECCIONES.map(sec => (
-          <div key={sec.titulo}>
-            <div className="mb-3 border-b border-zinc-800 pb-2">
-              <h2 className="text-sm font-black text-white">{sec.titulo}</h2>
-              <p className="text-xs text-zinc-500">{sec.sub}</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {sec.botones.map(b => {
-                const st = estados[b.id] ?? 'idle'
-                return (
-                  <div key={b.id} className="rounded-2xl p-4 flex flex-col gap-2 bg-[#161b22] border border-zinc-800">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-black text-white">{b.label}</p>
-                        <p className="text-xs text-zinc-500">{b.desc}</p>
-                      </div>
-                      {st === 'done' && (
-                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 bg-green-900/40 text-green-400">
-                          ✓
-                        </span>
-                      )}
-                    </div>
-                    {msgs[b.id] && (
-                      <p className={`text-xs px-2 py-1.5 rounded-lg ${st === 'done' ? 'bg-green-900/20 text-green-400' : 'bg-red-900/20 text-red-400'}`}>
-                        {msgs[b.id]}
-                      </p>
-                    )}
-                    <div className="flex gap-2 mt-auto pt-1">
-                      <button onClick={() => ejecutar(b.id)} disabled={st === 'loading'}
-                        className="flex-1 py-2 rounded-xl text-xs font-black disabled:opacity-40 transition-all hover:opacity-90 active:scale-95"
-                        style={{ backgroundColor: b.color, color: '#000' }}>
-                        {st === 'loading' ? 'Cargando…' : st === 'done' ? '↺ Repetir' : '⚡ Activar'}
-                      </button>
-                      {b.href && (
-                        <a href={b.href} target="_blank" rel="noopener noreferrer"
-                          className="px-3 py-2 rounded-xl text-xs font-bold text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 transition-colors">
-                          Ver ↗
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
+          {SECCIONES.map(sec => (
+            <section key={sec.titulo}>
+              {/* Section header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid #21262d' }}>
+                <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 10px', borderRadius: 6, backgroundColor: `${sec.badgeColor}22`, color: sec.badgeColor }}>
+                  {sec.badge}
+                </span>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#fff' }}>{sec.titulo}</h2>
+                <p style={{ margin: 0, fontSize: 13, color: '#8b949e' }}>{sec.sub}</p>
+              </div>
 
-        {/* Accesos directos al admin */}
-        <div>
-          <div className="mb-3 border-b border-zinc-800 pb-2">
-            <h2 className="text-sm font-black text-white">👑 Admin — Accesos directos</h2>
-            <p className="text-xs text-zinc-500">Abre cada sección del panel del restaurante</p>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-            {ADMIN_LINKS.map(l => (
-              <a key={l.href} href={l.href} target="_blank" rel="noopener noreferrer"
-                className="rounded-xl p-3 flex flex-col gap-0.5 bg-[#161b22] border border-zinc-800 hover:border-zinc-600 transition-colors">
-                <span className="text-xs font-black text-white">{l.label} ↗</span>
-                <span className="text-[11px] text-zinc-500">{l.desc}</span>
-              </a>
-            ))}
-          </div>
+              {/* Cards grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+                {sec.botones.map(b => {
+                  const st = estados[b.id] ?? 'idle'
+                  const isDone = st === 'done'
+                  const isLoading = st === 'loading'
+                  const isError = st === 'error'
+                  return (
+                    <div key={b.id} style={{
+                      backgroundColor: '#161b22',
+                      border: `1px solid ${isDone ? `${b.color}44` : '#30363d'}`,
+                      borderRadius: 16,
+                      padding: 20,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 14,
+                      transition: 'border-color 0.2s',
+                    }}>
+                      {/* Card header */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 22, lineHeight: 1 }}>{b.emoji}</span>
+                          <div>
+                            <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#fff' }}>{b.label}</p>
+                            <p style={{ margin: 0, fontSize: 12, color: '#8b949e', marginTop: 2 }}>{b.desc}</p>
+                          </div>
+                        </div>
+                        {isDone && (
+                          <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 20, backgroundColor: '#1a4731', color: '#3fb950', flexShrink: 0 }}>✓ OK</span>
+                        )}
+                      </div>
+
+                      {/* Feedback message */}
+                      {msgs[b.id] && (
+                        <p style={{
+                          margin: 0, fontSize: 12, padding: '8px 12px', borderRadius: 8,
+                          backgroundColor: isDone ? '#1a4731' : '#4a1717',
+                          color: isDone ? '#3fb950' : '#f85149',
+                        }}>
+                          {msgs[b.id]}
+                        </p>
+                      )}
+
+                      {/* Buttons */}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+                        <button onClick={() => ejecutar(b.id)} disabled={isLoading}
+                          style={{
+                            flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 13, fontWeight: 800,
+                            border: 'none', cursor: isLoading ? 'not-allowed' : 'pointer',
+                            backgroundColor: isDone ? `${b.color}22` : isError ? '#4a1717' : b.color,
+                            color: isDone ? b.color : isError ? '#f85149' : '#000',
+                            opacity: isLoading ? 0.5 : 1,
+                            transition: 'all 0.15s',
+                          }}>
+                          {isLoading ? '⏳ Cargando…' : isDone ? '↺ Repetir' : '⚡ Activar'}
+                        </button>
+                        {b.href && (
+                          <a href={b.href} target="_blank" rel="noopener noreferrer"
+                            style={{
+                              padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+                              color: '#8b949e', backgroundColor: '#21262d', border: '1px solid #30363d',
+                              textDecoration: 'none', whiteSpace: 'nowrap',
+                            }}>
+                            Ver ↗
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          ))}
+
+          {/* Admin links */}
+          <section>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid #21262d' }}>
+              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 10px', borderRadius: 6, backgroundColor: '#6366f122', color: '#818cf8' }}>
+                ACCESOS
+              </span>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#fff' }}>Panel Admin</h2>
+              <p style={{ margin: 0, fontSize: 13, color: '#8b949e' }}>Abre cada sección del restaurante en una pestaña nueva</p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+              {ADMIN_LINKS.map(l => (
+                <a key={l.href} href={l.href} target="_blank" rel="noopener noreferrer"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px',
+                    backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: 12,
+                    textDecoration: 'none', transition: 'border-color 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#6e7681')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#30363d')}
+                >
+                  <span style={{ fontSize: 18 }}>{l.emoji}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#c9d1d9' }}>{l.label} ↗</span>
+                </a>
+              ))}
+            </div>
+          </section>
         </div>
 
-        <p className="text-xs text-center text-zinc-700 pb-4">
+        <p style={{ textAlign: 'center', fontSize: 11, color: '#484f58', marginTop: 48 }}>
           /superadmin/demo · NICHO Platform
         </p>
       </div>
