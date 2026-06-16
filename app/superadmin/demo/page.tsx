@@ -16,24 +16,26 @@ const NAV_FASES = {
   3: { ...NAV_BASE, tabs: [{ id: 'menu', label: 'Menú', href: '/menu', icon: '' }, { id: 'card', label: 'Tarjeta', href: '/card', icon: '' }, { id: 'review', label: 'Reseñas', href: '/review', icon: '' }] },
 }
 
-async function setNavFase(nav: object) {
-  const r = await fetch(`${RESTO_URL}/api/settings`, {
+// Proxy server-side: evita el error CORS que ocurre al llamar a mi-proyecto directamente desde el browser.
+async function proxyApi(path: string, body: object) {
+  const r = await fetch('/api/demo-proxy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ key: 'customer_nav', value: JSON.stringify(nav) }),
+    body: JSON.stringify({ path, body }),
   })
-  if (!r.ok) throw new Error('Inicia sesión en el admin del restaurante primero')
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(err?.error ?? `Error ${r.status}`)
+  }
+  return r.json()
+}
+
+async function setNavFase(nav: object) {
+  await proxyApi('/api/settings', { key: 'customer_nav', value: JSON.stringify(nav) })
 }
 
 async function restoApi(path: string, body: object) {
-  const r = await fetch(`${RESTO_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(body),
-  })
-  return r.json()
+  return proxyApi(path, body)
 }
 
 const ACCIONES: Record<string, () => Promise<string>> = {
