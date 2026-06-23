@@ -1449,38 +1449,41 @@ function Permisos({ restaurants, addAudit, showToast }: {
   const modules = tab === "employee" ? EMPLOYEE_MODULES : USER_MODULES;
 
   const key = (mid: string) => `${sel}_${mid}`;
+  const CONNECTED_RESTAURANT = "r1";
+  const CONNECTED_PORTALES   = "portales";
+
   const [flags, setFlags] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     [...EMPLOYEE_MODULES, ...USER_MODULES].forEach((m) => {
       init[`all_${m.id}`] = !m.locked;
+      init[`portales_${m.id}`] = !m.locked;
       restaurants.forEach((r) => { init[`${r.id}_${m.id}`] = !m.locked; });
     });
     return init;
   });
 
-  const CONNECTED_RESTAURANT = "r1"; // Solo Nicho (r1) tiene app real; los demás restaurantes son demo.
-
   useEffect(() => {
-    // Leemos employee_permissions y user_permissions en paralelo vía /api/save-flags
-    // (misma origin → sin CORS). Mismo motivo que en FeatureFlags.
     Promise.all([
       fetch("/api/save-flags?key=employee_permissions").then(r => r.json()),
       fetch("/api/save-flags?key=user_permissions").then(r => r.json()),
-    ]).then(([employee, user]: [Record<string, boolean>, Record<string, boolean>]) => {
+      fetch("/api/save-flags?key=employee_permissions_portales").then(r => r.json()),
+      fetch("/api/save-flags?key=user_permissions_portales").then(r => r.json()),
+    ]).then(([employee, user, empPortales, usrPortales]: [Record<string, boolean>, Record<string, boolean>, Record<string, boolean>, Record<string, boolean>]) => {
       setFlags(prev => {
         const next = { ...prev };
-        // Solo sincronizamos las keys que ya existen en Supabase (no sobreescribimos defaults)
         EMPLOYEE_MODULES.forEach(m => {
           if (m.id in employee) {
             next[`all_${m.id}`] = employee[m.id];
             next[`${CONNECTED_RESTAURANT}_${m.id}`] = employee[m.id];
           }
+          if (m.id in empPortales) next[`portales_${m.id}`] = empPortales[m.id];
         });
         USER_MODULES.forEach(m => {
           if (m.id in user) {
             next[`all_${m.id}`] = user[m.id];
             next[`${CONNECTED_RESTAURANT}_${m.id}`] = user[m.id];
           }
+          if (m.id in usrPortales) next[`portales_${m.id}`] = usrPortales[m.id];
         });
         return next;
       });
@@ -1490,18 +1493,19 @@ function Permisos({ restaurants, addAudit, showToast }: {
   const toggle = (m: typeof modules[0]) => {
     const next = !flags[key(m.id)];
     const newFlags = { ...flags, [key(m.id)]: next };
-    // Misma lógica que en FeatureFlags: r1 y Global son la misma fuente de verdad.
-    if (sel === CONNECTED_RESTAURANT) newFlags[`all_${m.id}`] = next;
-    if (sel === "all") newFlags[`${CONNECTED_RESTAURANT}_${m.id}`] = next;
+    const isPortales = sel === CONNECTED_PORTALES;
+    if (!isPortales) {
+      if (sel === CONNECTED_RESTAURANT) newFlags[`all_${m.id}`] = next;
+      if (sel === "all") newFlags[`${CONNECTED_RESTAURANT}_${m.id}`] = next;
+    }
     setFlags(newFlags);
 
-    // Los permisos se guardan siempre en la key global (no por restaurante)
-    // porque todos los restaurantes leen del mismo Supabase en esta versión.
     const baseKey = tab === "employee" ? "employee_permissions" : "user_permissions";
-    const settingsKey = baseKey;
+    const settingsKey = isPortales ? `${baseKey}_portales` : baseKey;
     const currentMods = tab === "employee" ? EMPLOYEE_MODULES : USER_MODULES;
+    const scopePrefix = isPortales ? CONNECTED_PORTALES : "all";
     const perms: Record<string, boolean> = {};
-    currentMods.forEach((mod) => { perms[mod.id] = newFlags[`all_${mod.id}`] ?? !mod.locked; });
+    currentMods.forEach((mod) => { perms[mod.id] = newFlags[`${scopePrefix}_${mod.id}`] ?? !mod.locked; });
     fetch("/api/save-flags", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1516,7 +1520,7 @@ function Permisos({ restaurants, addAudit, showToast }: {
     addAudit(`Permiso ${next ? "activado" : "desactivado"} — ${rolLabel}`, `${m.name} → ${ctx}`, "update", ctx === "Global" ? "—" : ctx);
   };
 
-  const selName = sel === "all" ? "Todos los restaurantes" : restaurants.find((r) => r.id === sel)?.name ?? sel;
+  const selName = sel === "all" ? "Todos los restaurantes" : sel === CONNECTED_PORTALES ? "Portales" : restaurants.find((r) => r.id === sel)?.name ?? sel;
 
   return (
     <div>
@@ -1539,6 +1543,7 @@ function Permisos({ restaurants, addAudit, showToast }: {
         {restaurants.map((r) => (
           <button key={r.id} className={`sa-chip${sel === r.id ? " active" : ""}`} onClick={() => setSel(r.id)}>{r.name}</button>
         ))}
+        <button className={`sa-chip${sel === CONNECTED_PORTALES ? " active" : ""}`} onClick={() => setSel(CONNECTED_PORTALES)}>🏪 Portales</button>
       </div>
 
       <div className="sa-card">
