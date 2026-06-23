@@ -55,7 +55,7 @@ const FEATURES_R1: FeatureFlag[] = [
   { id: "analytics",        name: "Analytics",           description: "Métricas avanzadas, tendencias y predicciones", category: "Core",         defaultEnabled: true  },
   { id: "reportes",         name: "Reportes",            description: "Exportar PDF, Excel, CSV programados",          category: "Analytics",    defaultEnabled: true  },
   { id: "menu",             name: "Menú Inteligente",    description: "Productos, categorías y disponibilidad",        category: "Menú",         defaultEnabled: true  },
-  { id: "produccion",       name: "Recetario / Producción", description: "Recetas, inventario, stock y merma",         category: "Menú",         defaultEnabled: true  },
+  { id: "produccion",       name: "Producción",             description: "Recetario, inventario, stock y merma",       category: "Menú",         defaultEnabled: true  },
   { id: "crm",              name: "CRM",                 description: "Historial de clientes, segmentos y LTV",        category: "Clientes",     defaultEnabled: true  },
   { id: "customers",        name: "Clientes",            description: "Gestión de perfiles y visitas de clientes",     category: "Clientes",     defaultEnabled: true  },
   { id: "reservaciones",    name: "Reservaciones",       description: "Gestión de mesas y disponibilidad",             category: "Clientes",     defaultEnabled: true  },
