@@ -18,14 +18,33 @@ function calcTotals(orders: { total: number | null; notes: string | null }[]) {
   return { efectivo, tarjeta, transferencia, domicilio, total: efectivo + tarjeta + transferencia + domicilio }
 }
 
-function parseHistorial(value: unknown): unknown[] {
+function parseHistorial(value: unknown): Record<string, unknown>[] {
   if (!value) return []
   try { return JSON.parse(typeof value === 'string' ? value : JSON.stringify(value)) } catch { return [] }
 }
 
+// Resta3 revenue is derived from its cortes historial (shift summaries) instead of
+// the orders table, because Resta3 shares restaurant_id = 'default' with Nicho and
+// can't be distinguished at the row level. Cortes are already totalled per shift.
+function calcTotalsFromCortes(cortes: Record<string, unknown>[], since: Date) {
+  let efectivo = 0, tarjeta = 0, transferencia = 0, domicilio = 0, orders = 0
+  for (const c of cortes) {
+    const fin = c.fin ? new Date(c.fin as string) : null
+    if (!fin || fin < since) continue
+    efectivo      += (c.efectivo      as number) ?? 0
+    tarjeta       += (c.tarjeta       as number) ?? 0
+    transferencia += (c.transferencia as number) ?? 0
+    domicilio     += (c.domicilio     as number) ?? 0
+    orders        += (c.orders        as number) ?? 0
+  }
+  const total = efectivo + tarjeta + transferencia + domicilio
+  return { efectivo, tarjeta, transferencia, domicilio, total, orders }
+}
+
 const APPS = [
-  { id: 'default',  name: 'Nicho (mi-proyecto)',     settingsKey: 'cortes_historial' },
-  { id: 'portales', name: 'Portales',                settingsKey: 'portales:cortes_historial' },
+  { id: 'default',  name: 'Nicho (mi-proyecto)',     settingsKey: 'cortes_historial',          type: 'orders' as const },
+  { id: 'portales', name: 'Portales',                settingsKey: 'portales:cortes_historial',  type: 'orders' as const },
+  { id: 'resta3',   name: 'Resta3',                  settingsKey: 'cortes_historial',           type: 'resta3' as const },
 ]
 
 export async function GET() {
@@ -36,6 +55,28 @@ export async function GET() {
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
 
   const results = await Promise.all(APPS.map(async (app) => {
+    if (app.type === 'resta3') {
+      const { data: historialRows } = await supabaseAdmin
+        .from('settings')
+        .select('value')
+        .eq('key', app.settingsKey)
+        .limit(1)
+
+      const historialRow = Array.isArray(historialRows) ? historialRows[0] : historialRows
+      const historial = parseHistorial(historialRow?.value).slice(-50).reverse()
+
+      const todayTotals = calcTotalsFromCortes([...historial].reverse(), today)
+      const monthTotals = calcTotalsFromCortes([...historial].reverse(), monthStart)
+
+      return {
+        id:       app.id,
+        name:     app.name,
+        today:    todayTotals,
+        month:    monthTotals,
+        historial: historial.slice(0, 15),
+      }
+    }
+
     const [{ data: orders }, { data: historialRows }] = await Promise.all([
       supabaseAdmin
         .from('orders')
@@ -50,8 +91,7 @@ export async function GET() {
     ])
 
     const historialRow = Array.isArray(historialRows) ? historialRows[0] : historialRows
-    const historial = (parseHistorial(historialRow?.value) as Record<string, unknown>[])
-      .slice(-15).reverse()
+    const historial = parseHistorial(historialRow?.value).slice(-15).reverse()
 
     const allOrders   = orders ?? []
     const todayOrders = allOrders.filter(o => new Date(o.created_at) >= today)
@@ -59,8 +99,8 @@ export async function GET() {
     return {
       id:       app.id,
       name:     app.name,
-      today:    { orders: todayOrders.length,  ...calcTotals(todayOrders) },
-      month:    { orders: allOrders.length,    ...calcTotals(allOrders) },
+      today:    { orders: todayOrders.length, ...calcTotals(todayOrders) },
+      month:    { orders: allOrders.length,   ...calcTotals(allOrders) },
       historial,
     }
   }))
