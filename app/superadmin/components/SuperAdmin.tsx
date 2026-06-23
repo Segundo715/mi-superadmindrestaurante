@@ -451,7 +451,6 @@ function FeatureFlags({
       init[`portales_${f.id}`] = f.defaultEnabled;
       restaurants.forEach((r) => { init[`${r.id}_${f.id}`] = f.defaultEnabled; });
     });
-    FEATURES_RESTA3.forEach((f) => { init[`resta3_${f.id}`] = f.defaultEnabled; });
     return init;
   });
   const [roles, setRoles] = useState<Record<string, ("admin" | "employee" | "user")[]>>(() =>
@@ -459,9 +458,8 @@ function FeatureFlags({
   );
 
   // Restaurantes conectados a apps reales en Supabase (misma BD compartida).
-  const CONNECTED_RESTAURANT = "r1";       // mi-proyecto            → feature_flags
-  const CONNECTED_RESTA3     = "resta3";   // /resta3 en ambas apps  → feature_flags_resta3
-  const CONNECTED_PORTALES   = "portales"; // mi-restauranteportales → feature_flags_portales
+  const CONNECTED_RESTAURANT = "r1";       // mi-proyecto → feature_flags + feature_flags_resta3
+  const CONNECTED_PORTALES   = "portales"; // mi-restauranteportales → feature_flags_portales (R1 + Resta3 juntos)
 
   useEffect(() => {
     fetch("/api/save-flags?key=feature_flags")
@@ -483,7 +481,6 @@ function FeatureFlags({
           const next = { ...prev };
           FEATURES_RESTA3.forEach(f => {
             next[`all_${f.id}`] = saved[f.id] ?? f.defaultEnabled;
-            next[`${CONNECTED_RESTA3}_${f.id}`] = saved[f.id] ?? f.defaultEnabled;
           });
           return next;
         });
@@ -493,7 +490,7 @@ function FeatureFlags({
       .then((saved: Record<string, boolean>) => {
         setFlags(prev => {
           const next = { ...prev };
-          FEATURES_R1.forEach(f => {
+          FEATURES.forEach(f => {
             next[`${CONNECTED_PORTALES}_${f.id}`] = saved[f.id] ?? f.defaultEnabled;
           });
           return next;
@@ -503,35 +500,31 @@ function FeatureFlags({
 
   const k = (fid: string) => `${sel}_${fid}`;
   const selName = sel === "all" ? "Global"
-                : sel === CONNECTED_RESTA3   ? "Resta3"
-                : sel === CONNECTED_PORTALES  ? "Portales"
+                : sel === CONNECTED_PORTALES ? "Portales"
                 : restaurants.find((r) => r.id === sel)?.name ?? sel;
 
   const toggle = (fid: string, fname: string) => {
     const next = !(flags[k(fid)] ?? true);
     const newFlags = { ...flags, [k(fid)]: next };
 
-    const isPortales   = sel === CONNECTED_PORTALES;
-    const isResta3Chip = sel === CONNECTED_RESTA3;
-    const isResta3     = fid.startsWith("r3_");
+    const isPortales = sel === CONNECTED_PORTALES;
+    const isResta3   = fid.startsWith("r3_");
 
-    if (!isPortales && !isResta3Chip) {
+    if (!isPortales) {
       if (sel === CONNECTED_RESTAURANT) newFlags[`all_${fid}`] = next;
       if (sel === "all") newFlags[`${CONNECTED_RESTAURANT}_${fid}`] = next;
     }
     setFlags(newFlags);
 
-    const settingsKey = isPortales   ? "feature_flags_portales"
-                      : isResta3Chip ? "feature_flags_resta3"
-                      : isResta3     ? "feature_flags_resta3"
-                      :                "feature_flags";
-    const featureList = isPortales   ? FEATURES_R1
-                      : isResta3Chip ? FEATURES_RESTA3
-                      : isResta3     ? FEATURES_RESTA3
-                      :                FEATURES_R1;
-    const scopePrefix = isPortales   ? CONNECTED_PORTALES
-                      : isResta3Chip ? CONNECTED_RESTA3
-                      :                "all";
+    // Portales guarda R1 + Resta3 juntos en feature_flags_portales.
+    // Global guarda R1 en feature_flags y Resta3 en feature_flags_resta3.
+    const settingsKey = isPortales ? "feature_flags_portales"
+                      : isResta3  ? "feature_flags_resta3"
+                      :              "feature_flags";
+    const featureList = isPortales ? FEATURES
+                      : isResta3  ? FEATURES_RESTA3
+                      :              FEATURES_R1;
+    const scopePrefix = isPortales ? CONNECTED_PORTALES : "all";
     const savedFlags: Record<string, boolean> = {};
     featureList.forEach((f) => { savedFlags[f.id] = newFlags[`${scopePrefix}_${f.id}`] ?? true; });
 
@@ -559,9 +552,8 @@ function FeatureFlags({
     });
   };
 
-  const visibleFeatures = sel === CONNECTED_PORTALES ? FEATURES_R1
-                        : sel === CONNECTED_RESTA3   ? FEATURES_RESTA3
-                        : [...FEATURES_R1, ...FEATURES_RESTA3];
+  // Portales y Global muestran todas las features (R1 + Resta3)
+  const visibleFeatures = FEATURES;
   const categories = [...new Set(visibleFeatures.map((f) => f.category))];
 
   return (
@@ -600,7 +592,6 @@ function FeatureFlags({
         {restaurants.map((r) => (
           <button key={r.id} className={`sa-chip${sel === r.id ? " active" : ""}`} onClick={() => setSel(r.id)}>{r.name}</button>
         ))}
-        <button className={`sa-chip${sel === CONNECTED_RESTA3 ? " active" : ""}`} onClick={() => setSel(CONNECTED_RESTA3)}>🧾 Resta3</button>
         <button className={`sa-chip${sel === CONNECTED_PORTALES ? " active" : ""}`} onClick={() => setSel(CONNECTED_PORTALES)}>🏪 Portales</button>
       </div>
 
