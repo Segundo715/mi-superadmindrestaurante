@@ -48,20 +48,15 @@ export async function POST(req: Request) {
   const settingsKey: string = body.settingsKey ?? 'feature_flags'
   const flags = body.flags ?? body
 
-  // Intentamos upsert con onConflict. Si la tabla no tiene UNIQUE en key,
-  // hacemos delete + insert como fallback para evitar duplicados.
-  const { error: upsertErr } = await supabase
+  // Siempre delete + insert para garantizar exactamente una fila por key.
+  // El upsert con onConflict solo funciona si hay UNIQUE constraint en la columna key;
+  // como la tabla fue creada manualmente y puede no tenerlo, el upsert inserta duplicados
+  // silenciosamente y el GET posterior lee la fila vieja → los flags parecen resetearse.
+  await supabase.from('settings').delete().eq('key', settingsKey)
+  const { error } = await supabase
     .from('settings')
-    .upsert({ key: settingsKey, value: JSON.stringify(flags) }, { onConflict: 'key' })
+    .insert({ key: settingsKey, value: JSON.stringify(flags) })
 
-  if (upsertErr) {
-    // Fallback: borrar filas existentes con esa key e insertar una nueva.
-    await supabase.from('settings').delete().eq('key', settingsKey)
-    const { error: insertErr } = await supabase
-      .from('settings')
-      .insert({ key: settingsKey, value: JSON.stringify(flags) })
-    if (insertErr) return Response.json({ error: insertErr.message }, { status: 500 })
-  }
-
+  if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json({ ok: true })
 }
