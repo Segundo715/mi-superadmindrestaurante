@@ -9,7 +9,7 @@ import { useState, useCallback, useEffect } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type View = "overview" | "restaurants" | "flags" | "permisos" | "solicitudes" | "seguridad" | "billing" | "audit" | "plans" | "maintenance" | "notifications" | "discounts" | "activity";
+type View = "overview" | "restaurants" | "flags" | "permisos" | "solicitudes" | "seguridad" | "billing" | "audit" | "plans" | "maintenance" | "notifications" | "discounts" | "activity" | "ventas";
 type Plan = "trial" | "basic" | "premium";
 type Status = "active" | "suspended" | "maintenance";
 type AuditType = "create" | "update" | "delete" | "access" | "billing";
@@ -41,6 +41,10 @@ interface DiscountCode {
   id: string; code: string; discount: number; type: "%" | "$";
   maxUses: number; uses: number; expiresAt: string; active: boolean; note: string;
 }
+
+interface RevTotals { orders: number; efectivo: number; tarjeta: number; transferencia: number; domicilio: number; total: number }
+interface RevCorte  { id: string; inicio: string; fin: string; by: string; orders: number; efectivo: number; tarjeta: number; transferencia: number; domicilio: number; total: number }
+interface RevenueData { id: string; name: string; today: RevTotals; month: RevTotals; historial: RevCorte[] }
 
 
 // Features de Nicho Restaurant (r1) — admin principal
@@ -1883,6 +1887,147 @@ function Seguridad({ restaurants, showToast, addAudit }: {
   );
 }
 
+// ─── Ventas Reales ────────────────────────────────────────────────────────────
+
+function VentasReales() {
+  const [data, setData]       = useState<RevenueData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab]         = useState<string>('default');
+
+  useEffect(() => {
+    fetch('/api/superadmin/revenue')
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) { setData(d); if (d[0]) setTab(d[0].id) } })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, []);
+
+  const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 0 })}`
+
+  const app = data.find(d => d.id === tab)
+  const allToday = data.reduce((s, d) => s + d.today.total, 0)
+  const allMonth = data.reduce((s, d) => s + d.month.total, 0)
+  const allOrders = data.reduce((s, d) => s + d.month.orders, 0)
+
+  if (loading) return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Cargando ventas...</div>
+
+  return (
+    <div>
+      <div className="sa-section-header">
+        <div><div className="sa-section-title">💵 Ventas Reales</div><div className="sa-section-sub">Ingresos en tiempo real de cada restaurante conectado</div></div>
+      </div>
+
+      {/* KPIs globales */}
+      <div className="sa-kpi-strip">
+        <div className="sa-kpi-card">
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Ventas hoy (todas)</span><div className="sa-kpi-icon" style={{ background: 'rgba(0,230,118,.1)', color: 'var(--accent)' }}>💰</div></div>
+          <div className="sa-kpi-value">{fmt(allToday)}</div>
+          <div className="sa-kpi-delta">{data.reduce((s, d) => s + d.today.orders, 0)} pedidos hoy</div>
+        </div>
+        <div className="sa-kpi-card">
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Ventas este mes</span><div className="sa-kpi-icon" style={{ background: 'rgba(99,102,241,.12)', color: '#818cf8' }}>📅</div></div>
+          <div className="sa-kpi-value">{fmt(allMonth)}</div>
+          <div className="sa-kpi-delta">{allOrders} pedidos totales</div>
+        </div>
+        {data.map(d => (
+          <div key={d.id} className="sa-kpi-card">
+            <div className="sa-kpi-top"><span className="sa-kpi-label">{d.name}</span><div className="sa-kpi-icon" style={{ background: 'rgba(251,191,36,.1)', color: '#fbbf24' }}>🏪</div></div>
+            <div className="sa-kpi-value">{fmt(d.month.total)}</div>
+            <div className="sa-kpi-delta">hoy: {fmt(d.today.total)}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Selector de app */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        {data.map(d => (
+          <button key={d.id} className={`sa-chip${tab === d.id ? ' active' : ''}`} onClick={() => setTab(d.id)}>{d.name}</button>
+        ))}
+      </div>
+
+      {app && (
+        <>
+          {/* Desglose del día */}
+          <div className="sa-grid-2" style={{ marginBottom: '16px' }}>
+            <div className="sa-card">
+              <div className="sa-card-header"><span className="sa-card-title">📆 Hoy — {app.today.orders} pedidos</span></div>
+              <div className="sa-card-body">
+                {[
+                  { label: '💵 Efectivo',       value: app.today.efectivo },
+                  { label: '💳 Tarjeta',         value: app.today.tarjeta },
+                  { label: '📲 Transferencia',   value: app.today.transferencia },
+                  { label: '🛵 Domicilio',       value: app.today.domicilio },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: '.88rem' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+                    <span style={{ fontWeight: 700, color: value > 0 ? '#eef2f7' : 'var(--text-muted)' }}>{fmt(value)}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 0', fontWeight: 800, fontSize: '1rem' }}>
+                  <span>Total</span><span style={{ color: 'var(--accent)' }}>{fmt(app.today.total)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="sa-card">
+              <div className="sa-card-header"><span className="sa-card-title">📅 Este mes — {app.month.orders} pedidos</span></div>
+              <div className="sa-card-body">
+                {[
+                  { label: '💵 Efectivo',       value: app.month.efectivo },
+                  { label: '💳 Tarjeta',         value: app.month.tarjeta },
+                  { label: '📲 Transferencia',   value: app.month.transferencia },
+                  { label: '🛵 Domicilio',       value: app.month.domicilio },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: '.88rem' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+                    <span style={{ fontWeight: 700, color: value > 0 ? '#eef2f7' : 'var(--text-muted)' }}>{fmt(value)}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 0', fontWeight: 800, fontSize: '1rem' }}>
+                  <span>Total</span><span style={{ color: 'var(--accent)' }}>{fmt(app.month.total)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Historial de cortes */}
+          <div className="sa-card">
+            <div className="sa-card-header"><span className="sa-card-title">🗂️ Últimos cortes de caja</span></div>
+            {app.historial.length === 0 ? (
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '.86rem' }}>Sin cortes registrados aún</div>
+            ) : (
+              <table className="sa-table">
+                <thead><tr><th>Inicio turno</th><th>Cierre</th><th>Entregó</th><th>Pedidos</th><th>Efectivo</th><th>Tarjeta</th><th>Transferencia</th><th>Domicilio</th><th>Total</th></tr></thead>
+                <tbody>
+                  {app.historial.map(c => (
+                    <tr key={c.id}>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: '.78rem' }}>{new Date(c.inicio).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: '.78rem' }}>{new Date(c.fin).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                      <td style={{ fontWeight: 600 }}>{c.by}</td>
+                      <td style={{ textAlign: 'center' }}>{c.orders}</td>
+                      <td style={{ color: c.efectivo > 0 ? '#4ade80' : 'var(--text-muted)' }}>{fmt(c.efectivo)}</td>
+                      <td style={{ color: c.tarjeta > 0 ? '#60a5fa' : 'var(--text-muted)' }}>{fmt(c.tarjeta)}</td>
+                      <td style={{ color: c.transferencia > 0 ? '#c084fc' : 'var(--text-muted)' }}>{fmt(c.transferencia)}</td>
+                      <td style={{ color: c.domicilio > 0 ? '#fb923c' : 'var(--text-muted)' }}>{fmt(c.domicilio)}</td>
+                      <td style={{ fontWeight: 800, color: 'var(--accent)' }}>{fmt(c.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
+      )}
+
+      {data.length === 0 && (
+        <div className="sa-card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+          No hay datos de ventas disponibles. Las ventas aparecerán aquí cuando los restaurantes registren pedidos.
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Nav items ────────────────────────────────────────────────────────────────
 // `section` crea un separador/encabezado de grupo en el sidebar.
 // Los items sin `section` se agrupan bajo el encabezado del item anterior que sí lo tiene.
@@ -1896,6 +2041,7 @@ const NAV: { view: View; icon: string; label: string; section?: string }[] = [
   { view: "solicitudes",   icon: "📬", label: "Solicitudes" },
   { view: "seguridad",     icon: "🛡️", label: "Seguridad" },
   { view: "billing",       icon: "💳", label: "Cuentas y Pagos",   section: "Gestión" },
+  { view: "ventas",        icon: "💵", label: "Ventas Reales" },
   { view: "plans",         icon: "💎", label: "Planes" },
   { view: "discounts",     icon: "🎟️", label: "Descuentos" },
   { view: "audit",         icon: "🔍", label: "Auditoría",         section: "Config" },
@@ -1957,6 +2103,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       case "solicitudes":   return <Solicitudes requests={requests} setRequests={setRequests} addAudit={addAudit} showToast={showToast} />;
       case "seguridad":     return <Seguridad restaurants={restaurants} addAudit={addAudit} showToast={showToast} />;
       case "billing":       return <Billing {...shared} />;
+      case "ventas":        return <VentasReales />;
       case "audit":         return <AuditLog log={auditLog} showToast={showToast} />;
       case "plans":         return <Plans {...shared} planConfigs={planConfigs} setPlanConfigs={setPlanConfigs} />;
       case "discounts":     return <Discounts addAudit={addAudit} showToast={showToast} />;
