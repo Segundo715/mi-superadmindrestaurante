@@ -67,6 +67,7 @@ const FEATURES_R1: FeatureFlag[] = [
   { id: "marketing",        name: "Marketing",           description: "Campañas Meta Ads, TikTok, Google Ads",         category: "Marketing",    defaultEnabled: false },
   { id: "automatizaciones", name: "Automatizaciones IA", description: "Agentes de reservas, seguimiento y reputación", category: "IA",           defaultEnabled: false },
   { id: "contenido",        name: "Contenido",           description: "Multimedia, fotos y videos del restaurante",    category: "Marketing",    defaultEnabled: false },
+  { id: "cumpleanos",       name: "Cumpleaños",          description: "Registro y notificaciones de cumpleaños",        category: "Clientes",     defaultEnabled: true  },
 ];
 
 // Features de Resta3 — admin económico
