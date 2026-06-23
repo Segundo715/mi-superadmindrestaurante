@@ -1,13 +1,8 @@
 // Log de auditoría (tabla sa_audit_log): GET lista entradas, POST registra una nueva acción.
 // Se escribe automáticamente cada vez que el SuperAdmin modifica plan, estado o flags de un restaurante.
 import { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { verifySaSession } from '@/lib/saAuth'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 
 function toEntry(r: Record<string, unknown>) {
   const ts = new Date(r.ts as string)

@@ -1,12 +1,7 @@
 // CRUD de restaurantes clientes (tabla sa_restaurants). Requiere sa_session en todas las operaciones.
 import { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { verifySaSession } from '@/lib/saAuth'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 
 function toRestaurant(r: Record<string, unknown>) {
   return {

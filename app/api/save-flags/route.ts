@@ -1,6 +1,7 @@
 // Persiste y lee feature flags / permisos en la tabla settings (mismo Supabase que mi-proyecto).
-// Usar esta ruta local evita el problema de CORS que ocurría al leer desde mi-proyecto.vercel.app.
+// GET usa anon key (lectura pública). POST usa service key para poder hacer DELETE sin RLS.
 import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 // force-dynamic: evita que Next.js cachee el GET y devuelva datos obsoletos.
 export const dynamic = 'force-dynamic'
@@ -48,12 +49,11 @@ export async function POST(req: Request) {
   const settingsKey: string = body.settingsKey ?? 'feature_flags'
   const flags = body.flags ?? body
 
-  // Siempre delete + insert para garantizar exactamente una fila por key.
-  // El upsert con onConflict solo funciona si hay UNIQUE constraint en la columna key;
-  // como la tabla fue creada manualmente y puede no tenerlo, el upsert inserta duplicados
-  // silenciosamente y el GET posterior lee la fila vieja → los flags parecen resetearse.
-  await supabase.from('settings').delete().eq('key', settingsKey)
-  const { error } = await supabase
+  // Usar service key para DELETE+INSERT: la anon key puede no tener permiso de DELETE,
+  // lo que causaba que el upsert insertara filas duplicadas silenciosamente y el GET
+  // devolviera datos obsoletos tras recargar.
+  await supabaseAdmin.from('settings').delete().eq('key', settingsKey)
+  const { error } = await supabaseAdmin
     .from('settings')
     .insert({ key: settingsKey, value: JSON.stringify(flags) })
 

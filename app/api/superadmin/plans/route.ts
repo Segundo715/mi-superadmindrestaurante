@@ -1,13 +1,9 @@
 // Configuración de planes (tabla sa_plans): trial/basic/premium con precios y features.
 // El id del plan es el mismo string usado en sa_restaurants.plan.
 import { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { verifySaSession } from '@/lib/saAuth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { verifySaSession } from '@/lib/saAuth'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 
 const DEFAULT_PLANS = [
   { id: 'trial',   name: 'Trial',   price: 0,    trial_days: 30, max_users: 3,  color: '#3b82f6', features: JSON.stringify([

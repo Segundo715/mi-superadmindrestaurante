@@ -1,12 +1,8 @@
 // Códigos de descuento (tabla sa_discounts): GET lista todos, POST crea uno nuevo.
 import { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { verifySaSession } from '@/lib/saAuth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { verifySaSession } from '@/lib/saAuth'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 
 function toDiscount(r: Record<string, unknown>) {
   return {

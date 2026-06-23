@@ -1,12 +1,8 @@
 // PATCH para aprobar o rechazar una solicitud (status: approved/rejected + rejectReason opcional).
 import { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { verifySaSession } from '@/lib/saAuth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { verifySaSession } from '@/lib/saAuth'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   if (!await verifySaSession()) return Response.json({ error: 'No autorizado' }, { status: 401 })

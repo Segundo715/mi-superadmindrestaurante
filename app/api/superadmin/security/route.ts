@@ -1,12 +1,8 @@
 // Configuración de seguridad por restaurante (tabla sa_security): horas de sesión, PIN, horario y whitelist IP.
 import { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { verifySaSession } from '@/lib/saAuth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { verifySaSession } from '@/lib/saAuth'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 
 function toConfig(r: Record<string, unknown>) {
   return {

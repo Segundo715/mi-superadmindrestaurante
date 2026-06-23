@@ -1,12 +1,8 @@
 // Solicitudes de acceso a módulos (tabla sa_requests): GET lista, POST crea nueva solicitud.
 import { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { verifySaSession } from '@/lib/saAuth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { verifySaSession } from '@/lib/saAuth'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 
 function toRequest(r: Record<string, unknown>) {
   const ts = new Date(r.ts as string)
