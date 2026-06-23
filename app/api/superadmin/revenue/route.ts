@@ -1,5 +1,6 @@
 import { verifySaSession } from '@/lib/saAuth'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { supabasePortales } from '@/lib/supabasePortales'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,8 +25,8 @@ function parseHistorial(value: unknown): Record<string, unknown>[] {
 }
 
 // Resta3 revenue is derived from its cortes historial (shift summaries) instead of
-// the orders table, because Resta3 shares restaurant_id = 'default' with Nicho and
-// can't be distinguished at the row level. Cortes are already totalled per shift.
+// the orders table, because Resta3 shares restaurant_id='default' with Nicho and
+// can't be distinguished at the row level.
 function calcTotalsFromCortes(cortes: Record<string, unknown>[], since: Date) {
   let efectivo = 0, tarjeta = 0, transferencia = 0, domicilio = 0, orders = 0
   for (const c of cortes) {
@@ -37,14 +38,16 @@ function calcTotalsFromCortes(cortes: Record<string, unknown>[], since: Date) {
     domicilio     += (c.domicilio     as number) ?? 0
     orders        += (c.orders        as number) ?? 0
   }
-  const total = efectivo + tarjeta + transferencia + domicilio
-  return { efectivo, tarjeta, transferencia, domicilio, total, orders }
+  return { efectivo, tarjeta, transferencia, domicilio, total: efectivo + tarjeta + transferencia + domicilio, orders }
 }
 
 const APPS = [
-  { id: 'default',  name: 'Nicho (mi-proyecto)',     settingsKey: 'cortes_historial',          type: 'orders' as const },
-  { id: 'portales', name: 'Portales',                settingsKey: 'portales:cortes_historial',  type: 'orders' as const },
-  { id: 'resta3',   name: 'Resta3',                  settingsKey: 'cortes_historial',           type: 'resta3' as const },
+  // Nicho: BD compartida, filtra por restaurant_id='default'
+  { id: 'default',  name: 'Nicho (mi-proyecto)', db: supabaseAdmin,   ridFilter: 'default',  corteKey: 'cortes_historial',  type: 'orders' as const },
+  // Portales: BD propia, todas las órdenes son de portales (sin filtro de rid)
+  { id: 'portales', name: 'Portales',             db: supabasePortales, ridFilter: 'default', corteKey: 'cortes_historial',  type: 'orders' as const },
+  // Resta3: cortes del Nicho (comparte BD con Nicho)
+  { id: 'resta3',   name: 'Resta3',               db: supabaseAdmin,   ridFilter: 'default',  corteKey: 'cortes_historial',  type: 'resta3' as const },
 ]
 
 export async function GET() {
@@ -56,11 +59,8 @@ export async function GET() {
 
   const results = await Promise.all(APPS.map(async (app) => {
     if (app.type === 'resta3') {
-      const { data: historialRows } = await supabaseAdmin
-        .from('settings')
-        .select('value')
-        .eq('key', app.settingsKey)
-        .limit(1)
+      const { data: historialRows } = await app.db
+        .from('settings').select('value').eq('key', app.corteKey).limit(1)
 
       const historialRow = Array.isArray(historialRows) ? historialRows[0] : historialRows
       const historial = parseHistorial(historialRow?.value).slice(-50).reverse()
@@ -68,26 +68,14 @@ export async function GET() {
       const todayTotals = calcTotalsFromCortes([...historial].reverse(), today)
       const monthTotals = calcTotalsFromCortes([...historial].reverse(), monthStart)
 
-      return {
-        id:       app.id,
-        name:     app.name,
-        today:    todayTotals,
-        month:    monthTotals,
-        historial: historial.slice(0, 15),
-      }
+      return { id: app.id, name: app.name, today: todayTotals, month: monthTotals, historial: historial.slice(0, 15) }
     }
 
     const [{ data: orders }, { data: historialRows }] = await Promise.all([
-      supabaseAdmin
-        .from('orders')
-        .select('total, notes, created_at')
-        .eq('restaurant_id', app.id)
+      app.db.from('orders').select('total, notes, created_at')
+        .eq('restaurant_id', app.ridFilter)
         .gte('created_at', monthStart.toISOString()),
-      supabaseAdmin
-        .from('settings')
-        .select('value')
-        .eq('key', app.settingsKey)
-        .limit(1),
+      app.db.from('settings').select('value').eq('key', app.corteKey).limit(1),
     ])
 
     const historialRow = Array.isArray(historialRows) ? historialRows[0] : historialRows

@@ -1,9 +1,10 @@
-// Persiste y lee feature flags / permisos en la tabla settings (mismo Supabase que mi-proyecto).
-// GET usa anon key (lectura pública). POST usa service key para poder hacer DELETE sin RLS.
+// Persiste y lee feature flags / permisos en la tabla settings.
+// Las claves que terminan en _portales se redirigen a la BD propia de portales
+// (supabasePortales) usando el nombre sin sufijo.
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { supabasePortales } from '@/lib/supabasePortales'
 
-// force-dynamic: evita que Next.js cachee el GET y devuelva datos obsoletos.
 export const dynamic = 'force-dynamic'
 
 function stripBom(s: string): string {
@@ -15,33 +16,39 @@ const supabase = createClient(
   stripBom((process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '').trim())
 )
 
-// Parsea el valor de Supabase independientemente de si llegó como string o como objeto (jsonb).
 function parseValue(v: unknown): Record<string, boolean> {
   if (!v) return {}
-  if (typeof v === 'string') {
-    try { return JSON.parse(v) } catch { return {} }
-  }
+  if (typeof v === 'string') { try { return JSON.parse(v) } catch { return {} } }
   if (typeof v === 'object') return v as Record<string, boolean>
   return {}
 }
 
-// Lee los flags guardados para una key dada (?key=feature_flags).
-// Usa .limit(1) en vez de .maybeSingle() para no fallar si hay filas duplicadas.
+// Las claves _portales se guardan en la BD de portales con el nombre limpio.
+// Ej: 'feature_flags_portales' → BD portales, key 'feature_flags'
+function resolveTarget(key: string): { client: typeof supabaseAdmin; key: string } {
+  if (key.endsWith('_portales')) {
+    return { client: supabasePortales, key: key.replace(/_portales$/, '') }
+  }
+  return { client: supabaseAdmin, key }
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
-  const key = searchParams.get('key') ?? 'feature_flags'
+  const rawKey = searchParams.get('key') ?? 'feature_flags'
 
-  const { data, error } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', key)
-    .limit(1)
+  if (rawKey.endsWith('_portales')) {
+    // Leer desde BD portales con key sin sufijo
+    const dbKey = rawKey.replace(/_portales$/, '')
+    const { data, error } = await supabasePortales.from('settings').select('value').eq('key', dbKey).limit(1)
+    if (error) return Response.json({ error: error.message }, { status: 500 })
+    const row = Array.isArray(data) ? data[0] : data
+    return Response.json(parseValue(row?.value))
+  }
 
+  const { data, error } = await supabase.from('settings').select('value').eq('key', rawKey).limit(1)
   if (error) return Response.json({ error: error.message }, { status: 500 })
-
   const row = Array.isArray(data) ? data[0] : data
-  const flags = parseValue(row?.value)
-  return Response.json(flags)
+  return Response.json(parseValue(row?.value))
 }
 
 export async function POST(req: Request) {
@@ -49,13 +56,10 @@ export async function POST(req: Request) {
   const settingsKey: string = body.settingsKey ?? 'feature_flags'
   const flags = body.flags ?? body
 
-  // Usar service key para DELETE+INSERT: la anon key puede no tener permiso de DELETE,
-  // lo que causaba que el upsert insertara filas duplicadas silenciosamente y el GET
-  // devolviera datos obsoletos tras recargar.
-  await supabaseAdmin.from('settings').delete().eq('key', settingsKey)
-  const { error } = await supabaseAdmin
-    .from('settings')
-    .insert({ key: settingsKey, value: JSON.stringify(flags) })
+  const { client, key } = resolveTarget(settingsKey)
+
+  await client.from('settings').delete().eq('key', key)
+  const { error } = await client.from('settings').insert({ key, value: JSON.stringify(flags) })
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json({ ok: true })
