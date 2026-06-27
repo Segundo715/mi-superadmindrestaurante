@@ -1360,76 +1360,115 @@ function Maintenance({ restaurants, setRestaurants, addAudit, showToast }: {
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
+type Ticket = {
+  id: string;
+  restaurant_id: string;
+  restaurant_name: string | null;
+  from_name: string;
+  from_role: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+  source: "main" | "portales";
+};
+
+const ROLE_COLOR: Record<string, string> = {
+  Empleado: "#3b82f6",
+  Resta3:   "#8b5cf6",
+  Admin:    "#f59e0b",
+};
+
 function Notifications({ showToast }: { showToast: (msg: string, type?: Toast["type"]) => void }) {
-  const [days, setDays] = useState(5);
-  const [ch, setCh] = useState({ email: true, whatsapp: true, push: false });
-  const [triggers, setTriggers] = useState({ debt: true, expiry: true, userLimit: true, maintenance: false, newRestaurant: true });
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Stub de UI: muestra feedback al usuario pero aún no persiste en ningún backend.
-  const save = () => {
-    showToast("Configuración de notificaciones guardada");
-  };
+  async function load() {
+    setLoading(true);
+    const data = await fetch("/api/superadmin/tickets").then(r => r.json()).catch(() => []);
+    setTickets(Array.isArray(data) ? data : []);
+    setLoading(false);
+  }
 
-  // Stub de UI: simula enviar una notificación de prueba sin llamada real al servidor.
-  const sendTest = () => {
-    showToast("Notificación de prueba enviada", "info");
-  };
+  useEffect(() => { load(); }, []);
 
-  const rowStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: "1px solid var(--border)" };
+  async function markRead(id: string, source: Ticket["source"]) {
+    await fetch("/api/superadmin/tickets", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, source }),
+    });
+    setTickets(t => t.map(x => x.id === id ? { ...x, read: true } : x));
+  }
+
+  async function markAllRead() {
+    await fetch("/api/superadmin/tickets", { method: "PUT" });
+    setTickets(t => t.map(x => ({ ...x, read: true })));
+    showToast("Todos marcados como leídos");
+  }
+
+  async function deleteTicket(id: string, source: Ticket["source"]) {
+    await fetch(`/api/superadmin/tickets?id=${id}&source=${source}`, { method: "DELETE" });
+    setTickets(t => t.filter(x => x.id !== id));
+    showToast("Reporte eliminado");
+  }
+
+  const unread = tickets.filter(t => !t.read).length;
 
   return (
     <div>
       <div className="sa-section-header">
-        <div><div className="sa-section-title">🔔 Notificaciones</div><div className="sa-section-sub">Alertas automáticas a restaurantes y al super admin</div></div>
+        <div>
+          <div className="sa-section-title">🔔 Reportes de soporte</div>
+          <div className="sa-section-sub">Mensajes enviados por empleados, Resta3 y admins de los restaurantes</div>
+        </div>
         <div style={{ display: "flex", gap: "8px" }}>
-          <button className="sa-btn" onClick={sendTest}>📤 Prueba</button>
-          <button className="sa-btn primary" onClick={save}>💾 Guardar</button>
+          {unread > 0 && <button className="sa-btn" onClick={markAllRead}>✓ Marcar todos leídos</button>}
+          <button className="sa-btn" onClick={load}>↺ Actualizar</button>
         </div>
       </div>
 
-      <div className="sa-grid-2">
-        <div className="sa-card">
-          <div className="sa-card-header"><span className="sa-card-title">Canales de envío</span></div>
-          <div className="sa-card-body">
-            {([["email", "📧 Email", "Via SendGrid / SMTP"], ["whatsapp", "💬 WhatsApp", "Via WhatsApp Business API"], ["push", "📲 Push notification", "Via Firebase / OneSignal"]] as const).map(([k, label, sub]) => (
-              <div key={k} style={rowStyle}>
-                <div><div style={{ fontWeight: 600, fontSize: ".9rem" }}>{label}</div><div style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>{sub}</div></div>
-                <Toggle checked={ch[k]} onChange={(v) => setCh((p) => ({ ...p, [k]: v }))} />
+      {loading ? (
+        <div className="sa-card" style={{ textAlign: "center", padding: "40px", color: "var(--text-secondary)" }}>Cargando...</div>
+      ) : tickets.length === 0 ? (
+        <div className="sa-card" style={{ textAlign: "center", padding: "48px", color: "var(--text-secondary)" }}>
+          <div style={{ fontSize: "2.5rem", marginBottom: "10px" }}>📭</div>
+          <div style={{ fontWeight: 600 }}>Sin reportes pendientes</div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {tickets.map(ticket => {
+            const roleColor = ROLE_COLOR[ticket.from_role] ?? "#6b7280";
+            return (
+              <div key={ticket.id} className="sa-card" style={{ opacity: ticket.read ? 0.65 : 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", flexWrap: "wrap" }}>
+                      {!ticket.read && (
+                        <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#ef4444", flexShrink: 0, display: "inline-block" }} />
+                      )}
+                      <span style={{ fontWeight: 700, fontSize: ".9rem" }}>{ticket.restaurant_name || ticket.restaurant_id}</span>
+                      <span style={{ fontSize: ".72rem", padding: "2px 8px", borderRadius: "999px", background: roleColor + "22", color: roleColor, border: `1px solid ${roleColor}55`, fontWeight: 600 }}>
+                        {ticket.from_role}
+                      </span>
+                      <span style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>{ticket.from_name}</span>
+                    </div>
+                    <div style={{ fontSize: ".9rem", lineHeight: 1.5, marginBottom: "6px" }}>{ticket.message}</div>
+                    <div style={{ fontSize: ".72rem", color: "var(--text-muted)" }}>
+                      {new Date(ticket.created_at).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" })}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+                    {!ticket.read && (
+                      <button className="sa-btn" onClick={() => markRead(ticket.id, ticket.source)} style={{ fontSize: ".75rem", padding: "4px 10px" }}>✓ Leer</button>
+                    )}
+                    <button className="sa-btn" onClick={() => deleteTicket(ticket.id, ticket.source)} style={{ fontSize: ".75rem", padding: "4px 10px", color: "#ef4444" }}>🗑</button>
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
-
-        <div className="sa-card">
-          <div className="sa-card-header"><span className="sa-card-title">Días de anticipación al cobro</span></div>
-          <div className="sa-card-body">
-            <p style={{ fontSize: ".86rem", color: "var(--text-secondary)", marginBottom: "16px" }}>Enviar recordatorio con cuántos días de anticipación al vencimiento:</p>
-            <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "10px" }}>
-              <input type="range" min={1} max={14} value={days} onChange={(e) => setDays(Number(e.target.value))} style={{ flex: 1, accentColor: "#00e676" }} />
-              <span style={{ fontWeight: 800, fontSize: "1.5rem", color: "var(--accent)", minWidth: "44px" }}>{days}d</span>
-            </div>
-            <p style={{ fontSize: ".75rem", color: "var(--text-muted)" }}>Se enviará {days} día{days !== 1 ? "s" : ""} antes del vencimiento</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="sa-card">
-        <div className="sa-card-header"><span className="sa-card-title">Disparadores automáticos</span></div>
-        <div className="sa-card-body">
-          {[
-            { k: "debt",          label: "Saldo pendiente en dashboard",    desc: "Banner/toast al entrar si el restaurante tiene deuda" },
-            { k: "expiry",        label: "Recordatorio de vencimiento",      desc: `Alerta automática ${days} días antes del corte` },
-            { k: "userLimit",     label: "Límite de usuarios alcanzado",     desc: "Alertar cuando el restaurante llega al 90% de su cuota" },
-            { k: "maintenance",   label: "Cambio en modo mantenimiento",     desc: "Notificar al admin cuando se activa o desactiva" },
-            { k: "newRestaurant", label: "Nuevo restaurante registrado",     desc: "Notificar al superadmin cuando alguien se registra" },
-          ].map(({ k, label, desc }) => (
-            <div key={k} style={rowStyle}>
-              <div><div style={{ fontWeight: 600, fontSize: ".88rem" }}>{label}</div><div style={{ fontSize: ".75rem", color: "var(--text-secondary)", marginTop: "2px" }}>{desc}</div></div>
-              <Toggle checked={triggers[k as keyof typeof triggers]} onChange={(v) => setTriggers((p) => ({ ...p, [k]: v }))} />
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -2053,6 +2092,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [toast, setToast]                   = useState<Toast | null>(null);
   const [alertDismissed, setAlertDismissed] = useState(false);
   const [activeUser, setActiveUser]         = useState("Super Admin");
+  const [unreadTickets, setUnreadTickets]   = useState(0);
 
   useEffect(() => {
     const u = localStorage.getItem('sa_user')
@@ -2062,6 +2102,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     fetch('/api/superadmin/audit').then(r => r.json()).then(d => { if (Array.isArray(d)) setAuditLog(d) }).catch(() => {})
     fetch('/api/superadmin/plans').then(r => r.json()).then(d => { if (Array.isArray(d)) setPlanConfigs(d) }).catch(() => {})
     fetch('/api/superadmin/requests').then(r => r.json()).then(d => { if (Array.isArray(d)) setRequests(d) }).catch(() => {})
+    fetch('/api/superadmin/tickets?count=true').then(r => r.json()).then(d => setUnreadTickets(d.unread ?? 0)).catch(() => {})
   }, []);
 
   // Auto-oculta el toast después de 3 segundos.
@@ -2174,7 +2215,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <button className="sa-topbar-btn" onClick={() => setView("billing")}>
               💳 {debtRestaurants.length > 0 && <span className="sa-notif-badge">{debtRestaurants.length}</span>}
             </button>
-            <button className="sa-topbar-btn" onClick={() => setView("notifications")}>🔔</button>
+            <button className="sa-topbar-btn" onClick={() => { setView("notifications"); setUnreadTickets(0); }}>
+              🔔 {unreadTickets > 0 && <span className="sa-notif-badge">{unreadTickets}</span>}
+            </button>
           </div>
         </header>
         <div className="sa-content">{renderView()}</div>
