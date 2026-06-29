@@ -72,6 +72,7 @@ const FEATURES_R1: FeatureFlag[] = [
 
 // Features de Resta3 — admin económico
 const FEATURES_RESTA3: FeatureFlag[] = [
+  { id: "r3_dashboard",  name: "Dashboard",     description: "Pantalla de inicio del panel Resta3",      category: "Resta3", defaultEnabled: true  },
   { id: "r3_tpv",        name: "TPV / Caja",    description: "Terminal punto de venta y cobros",         category: "Resta3", defaultEnabled: true  },
   { id: "r3_mesas",      name: "Mesas",         description: "Gestión de mesas y salón",                 category: "Resta3", defaultEnabled: true  },
   { id: "r3_cocina",     name: "Cocina",        description: "Pantalla de cocina y pedidos",             category: "Resta3", defaultEnabled: true  },
