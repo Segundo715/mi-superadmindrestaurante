@@ -49,6 +49,7 @@ interface RevenueData { id: string; name: string; today: RevTotals; month: RevTo
 
 // Features de Nicho Restaurant (r1) — admin principal
 const FEATURES_R1: FeatureFlag[] = [
+  { id: "dashboard",        name: "Dashboard",           description: "Pantalla de inicio del panel admin",            category: "Core",         defaultEnabled: true  },
   { id: "ventas",           name: "Ventas",              description: "Transacciones, tickets y cierres",              category: "Core",         defaultEnabled: true  },
   { id: "operaciones",      name: "Operaciones",         description: "Mesas, pedidos y KDS en tiempo real",           category: "Core",         defaultEnabled: true  },
   { id: "configuracion",    name: "Configuración",       description: "Sucursales, usuarios, roles e integraciones",   category: "Core",         defaultEnabled: true  },
