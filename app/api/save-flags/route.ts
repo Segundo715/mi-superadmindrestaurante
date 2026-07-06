@@ -4,6 +4,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { supabasePortales } from '@/lib/supabasePortales'
+import { verifySaSession } from '@/lib/saAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,6 +53,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (!await verifySaSession())
+    return Response.json({ error: 'No autorizado' }, { status: 401 })
+
   const body = await req.json()
   const settingsKey: string = body.settingsKey ?? 'feature_flags'
   const flags = body.flags ?? body

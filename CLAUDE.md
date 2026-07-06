@@ -45,7 +45,8 @@ Las variables `PORTALES_*` **solo existen en Vercel**, no en `.env.local`.
 - Guard páginas: `superadmin/layout.tsx` (server-side)
 - Guard APIs: `verifySaSession()` de `lib/saAuth.ts` en cada `/api/superadmin/*`
 
-> ⚠️ **Riesgo:** `sa_session` es un valor fijo conocido — falsificable. `/api/save-flags` no tiene auth.
+> ⚠️ **Riesgo pendiente:** `sa_session` es un valor fijo conocido — falsificable. Sin rate limiting en login.
+> ✅ **Corregido 2026-07-06:** `/api/save-flags` POST ya requiere `verifySaSession()`. `/api/ai/chat` ya requiere sesión válida (excepto rol customer).
 
 ### Feature flags — rutas de guardado
 
