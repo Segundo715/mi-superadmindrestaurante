@@ -52,3 +52,11 @@ CLAUDE.md,Documentacion/indice.md,Documentacion/sesiones/sesiones.md,Documentaci
 app/superadmin/components/SuperAdmin.tsx,app/superadmin/superadmin.css
 
 ---
+
+## 2026-07-16 — Thursday
+
+### 11:01 AM — main
+**feat: agregar toggle de tema claro/oscuro al dashboard de Super Admin**
+app/superadmin/components/SuperAdmin.tsx,app/superadmin/superadmin.css
+
+---
