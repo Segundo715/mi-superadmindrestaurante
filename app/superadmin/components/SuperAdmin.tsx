@@ -2265,10 +2265,7 @@ function Dashboard({ onLogout, theme, toggleTheme }: { onLogout: () => void; the
           <button className="sa-hamburger" onClick={() => setSidebarOpen(true)} aria-label="Abrir menú">
             <span /><span /><span />
           </button>
-          <div>
-            <div className="sa-topbar-title"><Icon name={NAV.find((n) => n.view === view)?.icon ?? "bar-chart"} size={20} /> {NAV.find((n) => n.view === view)?.label}</div>
-            <div className="sa-topbar-sub">NICHO Platform · Super Admin</div>
-          </div>
+          <div className="sa-topbar-brand">NICHO Platform · Super Admin</div>
           <div className="sa-topbar-right">
             <button className="sa-topbar-btn" onClick={toggleTheme} title={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}>
               <Icon name={theme === "dark" ? "sun" : "moon"} />
