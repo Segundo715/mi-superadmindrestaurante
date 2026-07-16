@@ -133,7 +133,7 @@ const PLAN_COLORS: Record<Plan, string>    = { trial: "info",  basic: "muted",  
 const PLAN_PRICE: Record<Plan, number>     = { trial: 0, basic: 799, premium: 2499 };
 const STATUS_LABELS: Record<Status, string> = { active: "Activo", suspended: "Suspendido", maintenance: "Mantenimiento" };
 const STATUS_COLORS: Record<Status, string> = { active: "active", suspended: "danger",     maintenance: "warning"       };
-const AUDIT_ICONS: Record<AuditType, string> = { create: "➕", update: "✏️", delete: "🗑️", access: "👁️", billing: "💳" };
+const AUDIT_ICONS: Record<AuditType, IconName> = { create: "plus", update: "edit", delete: "trash", access: "eye", billing: "credit-card" };
 const AUDIT_COLORS: Record<AuditType, string> = { create: "active", update: "info", delete: "danger", access: "muted", billing: "warning" };
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
@@ -161,7 +161,7 @@ function ToastBanner({ toast }: { toast: Toast }) {
     info:    "rgba(59,130,246,.15)",
   };
   const color: Record<string, string> = { success: "#00e676", error: "#ef4444", info: "#60a5fa" };
-  const icon: Record<string, string>  = { success: "✅", error: "❌", info: "ℹ️" };
+  const icon: Record<string, IconName> = { success: "check-circle", error: "x-circle", info: "info" };
   return (
     <div style={{
       position: "fixed", top: "20px", right: "20px", zIndex: 9999,
@@ -172,7 +172,7 @@ function ToastBanner({ toast }: { toast: Toast }) {
       boxShadow: "0 8px 32px rgba(0,0,0,.4)", maxWidth: "360px",
       animation: "fadeIn .2s ease",
     }}>
-      <span>{icon[toast.type]}</span>
+      <span style={{ display: "flex" }}><Icon name={icon[toast.type]} /></span>
       <span style={{ color: "var(--text-primary)" }}>{toast.msg}</span>
     </div>
   );
@@ -249,7 +249,7 @@ function Overview({ restaurants, setView }: { restaurants: Restaurant[]; setView
           <div className="sa-card-body">
             {restaurants.map((r) => (
               <div key={r.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
-                <div style={{ width: 34, height: 34, borderRadius: "10px", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>🍽️</div>
+                <div style={{ width: 34, height: 34, borderRadius: "10px", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name="store" /></div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: ".88rem" }}>{r.name}</div>
                   <div style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>{r.users}/{r.maxUsers} usuarios · {PLAN_LABELS[r.plan]}</div>
@@ -339,12 +339,12 @@ function Restaurants({
     <div>
       <div className="sa-section-header">
         <div><div className="sa-section-title"><Icon name="store" size={22} /> Restaurantes</div><div className="sa-section-sub">{restaurants.length} registrados · {restaurants.filter((r) => r.status === "active").length} activos</div></div>
-        <button className="sa-btn primary" onClick={() => setShowNewForm(true)}>+ Registrar restaurante</button>
+        <button className="sa-btn primary" onClick={() => setShowNewForm(true)}><Icon name="plus" size={16} /> Registrar restaurante</button>
       </div>
 
       <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap" }}>
         <div className="sa-search" style={{ flex: 1, minWidth: "180px" }}>
-          <span style={{ color: "var(--text-muted)" }}>🔍</span>
+          <span style={{ color: "var(--text-muted)", display: "flex" }}><Icon name="search" size={16} /></span>
           <input placeholder="Buscar restaurante…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         {(["all", "trial", "basic", "premium"] as const).map((f) => (
@@ -405,7 +405,7 @@ function Restaurants({
             <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
               {selected.status !== "maintenance" && (
                 <button className={`sa-btn${selected.status === "suspended" ? "" : " danger"}`} style={{ flex: 1 }} onClick={() => toggleStatus(selected)}>
-                  {selected.status === "suspended" ? "✅ Reactivar" : "🚫 Suspender"}
+                  <Icon name={selected.status === "suspended" ? "check-circle" : "ban"} size={16} /> {selected.status === "suspended" ? "Reactivar" : "Suspender"}
                 </button>
               )}
               <button className="sa-btn" style={{ flex: 1 }} onClick={() => setSelected(null)}>Cerrar</button>
@@ -428,7 +428,7 @@ function Restaurants({
             <option value="premium">Premium ($2,499/mes)</option>
           </select>
           <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
-            <button className="sa-btn primary" style={{ flex: 1 }} onClick={addRestaurant}>✅ Registrar</button>
+            <button className="sa-btn primary" style={{ flex: 1 }} onClick={addRestaurant}><Icon name="check-circle" size={16} /> Registrar</button>
             <button className="sa-btn" style={{ flex: 1 }} onClick={() => setShowNewForm(false)}>Cancelar</button>
           </div>
         </Modal>
@@ -568,7 +568,7 @@ function FeatureFlags({
           const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
           a.download = "feature-flags.json"; a.click();
           showToast("Configuración exportada");
-        }}>⬇ Exportar JSON</button>
+        }}><Icon name="download" size={16} /> Exportar JSON</button>
       </div>
 
       {/* Resumen de estado */}
@@ -578,24 +578,24 @@ function FeatureFlags({
         const off = visibleFeatures.filter(f => (flags[`${scopeKey}_${f.id}`] ?? f.defaultEnabled) === false).length;
         return off > 0 ? (
           <div style={{ marginBottom: "16px", padding: "10px 16px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "10px", display: "flex", alignItems: "center", gap: "10px" }}>
-            <span>⚠️</span>
+            <span style={{ color: "#f87171", display: "flex" }}><Icon name="alert-triangle" size={16} /></span>
             <span style={{ color: "#f87171", fontWeight: 600, fontSize: ".88rem" }}>{off} de {total} módulos desactivados</span>
             <span style={{ color: "#64748b", fontSize: ".8rem" }}>en {sel === "all" ? "Global" : restaurants.find(r => r.id === sel)?.name ?? sel}</span>
           </div>
         ) : (
           <div style={{ marginBottom: "16px", padding: "10px 16px", background: "rgba(0,230,118,0.06)", border: "1px solid rgba(0,230,118,0.15)", borderRadius: "10px", display: "flex", alignItems: "center", gap: "10px" }}>
-            <span>✅</span>
+            <span style={{ color: "#4ade80", display: "flex" }}><Icon name="check-circle" size={16} /></span>
             <span style={{ color: "#4ade80", fontWeight: 600, fontSize: ".88rem" }}>Todos los módulos activos</span>
           </div>
         );
       })()}
 
       <div style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
-        <button className={`sa-chip${sel === "all" ? " active" : ""}`} onClick={() => setSel("all")}>🌐 Global</button>
+        <button className={`sa-chip${sel === "all" ? " active" : ""}`} onClick={() => setSel("all")}><Icon name="globe" size={13} /> Global</button>
         {restaurants.map((r) => (
           <button key={r.id} className={`sa-chip${sel === r.id ? " active" : ""}`} onClick={() => setSel(r.id)}>{r.name}</button>
         ))}
-        <button className={`sa-chip${sel === CONNECTED_PORTALES ? " active" : ""}`} onClick={() => setSel(CONNECTED_PORTALES)}>🏪 Portales</button>
+        <button className={`sa-chip${sel === CONNECTED_PORTALES ? " active" : ""}`} onClick={() => setSel(CONNECTED_PORTALES)}><Icon name="store" size={13} /> Portales</button>
       </div>
 
       {categories.map((cat) => (
@@ -713,7 +713,7 @@ function Billing({
                 <td><Badge type={r.balance > 0 ? "danger" : "active"}>{r.balance > 0 ? "Deuda pendiente" : "Al corriente"}</Badge></td>
                 <td>
                   <div style={{ display: "flex", gap: "6px" }}>
-                    {r.balance > 0 && <button className="sa-btn sm primary" onClick={() => registerPayment(r)}>💰 Liquidar</button>}
+                    {r.balance > 0 && <button className="sa-btn sm primary" onClick={() => registerPayment(r)}><Icon name="dollar" size={14} /> Liquidar</button>}
                     <button className="sa-btn sm" onClick={() => { setChangePlan(r); setSelectedPlan(r.plan); }}>Cambiar plan</button>
                   </div>
                 </td>
@@ -771,12 +771,12 @@ function AuditLog({ log, showToast }: { log: AuditEntry[]; showToast: (msg: stri
     <div>
       <div className="sa-section-header">
         <div><div className="sa-section-title"><Icon name="search" size={22} /> Auditoría</div><div className="sa-section-sub">{log.length} registros · quién hizo qué y cuándo</div></div>
-        <button className="sa-btn" onClick={exportCSV}>⬇ Exportar CSV</button>
+        <button className="sa-btn" onClick={exportCSV}><Icon name="download" size={16} /> Exportar CSV</button>
       </div>
 
       <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap" }}>
         <div className="sa-search" style={{ flex: 1, minWidth: "200px" }}>
-          <span style={{ color: "var(--text-muted)" }}>🔍</span>
+          <span style={{ color: "var(--text-muted)", display: "flex" }}><Icon name="search" size={16} /></span>
           <input placeholder="Buscar acción, usuario, restaurante…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="sa-tabs" style={{ margin: 0 }}>
@@ -797,7 +797,7 @@ function AuditLog({ log, showToast }: { log: AuditEntry[]; showToast: (msg: stri
               : filtered.map((e) => (
                 <tr key={e.id}>
                   <td style={{ color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{e.ts}</td>
-                  <td><span style={{ display: "flex", alignItems: "center", gap: "6px" }}>{AUDIT_ICONS[e.type]} <Badge type={AUDIT_COLORS[e.type]}>{e.type}</Badge></span></td>
+                  <td><span style={{ display: "flex", alignItems: "center", gap: "6px" }}><Icon name={AUDIT_ICONS[e.type]} size={16} /> <Badge type={AUDIT_COLORS[e.type]}>{e.type}</Badge></span></td>
                   <td style={{ fontWeight: 600 }}>{e.user}</td>
                   <td style={{ color: "var(--text-secondary)" }}>{e.restaurant}</td>
                   <td>{e.action}</td>
@@ -906,7 +906,7 @@ function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAu
             ))}
             <button className="sa-btn full" style={{ marginTop: "14px", borderColor: p.color, color: p.color }}
               onClick={() => openEditor(p)}>
-              ✏️ Editar plan
+              <Icon name="edit" size={16} /> Editar plan
             </button>
           </div>
         ))}
@@ -1031,7 +1031,7 @@ function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAu
             </div>
 
             <div style={{ display: "flex", gap: "8px" }}>
-              <button className="sa-btn primary" style={{ flex: 1 }} onClick={saveEdit}>💾 Guardar cambios</button>
+              <button className="sa-btn primary" style={{ flex: 1 }} onClick={saveEdit}><Icon name="save" size={16} /> Guardar cambios</button>
               <button className="sa-btn" style={{ flex: 1 }} onClick={() => { setEditing(null); setDraft(null); }}>Cancelar</button>
             </div>
           </div>
@@ -1121,7 +1121,7 @@ function Discounts({ addAudit, showToast }: {
                 <td>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <span style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--text-primary)", fontSize: ".9rem" }}>{c.code}</span>
-                    <button onClick={() => copy(c.code)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: ".8rem" }}>📋</button>
+                    <button onClick={() => copy(c.code)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", display: "flex" }}><Icon name="clipboard" size={15} /></button>
                   </div>
                 </td>
                 <td style={{ fontWeight: 700, color: "var(--accent)", fontSize: ".95rem" }}>{c.discount}{c.type}</td>
@@ -1157,7 +1157,7 @@ function Discounts({ addAudit, showToast }: {
                 <input style={inpStyle} value={form.code} onChange={(e) => setForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="NICHO30" />
               </div>
               <div style={{ display: "flex", alignItems: "flex-end", paddingBottom: "0px" }}>
-                <button className="sa-btn sm" style={{ height: "36px" }} onClick={generate}>🎲 Auto</button>
+                <button className="sa-btn sm" style={{ height: "36px" }} onClick={generate}><Icon name="shuffle" size={14} /> Auto</button>
               </div>
             </div>
 
@@ -1194,7 +1194,7 @@ function Discounts({ addAudit, showToast }: {
             </div>
 
             <div style={{ display: "flex", gap: "8px" }}>
-              <button className="sa-btn primary" style={{ flex: 1 }} onClick={create}>✅ Crear código</button>
+              <button className="sa-btn primary" style={{ flex: 1 }} onClick={create}><Icon name="check-circle" size={16} /> Crear código</button>
               <button className="sa-btn" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancelar</button>
             </div>
           </div>
@@ -1288,7 +1288,7 @@ function Activity({ restaurants }: { restaurants: Restaurant[] }) {
         <div className="sa-card-body">
           {restaurants.filter((r) => r.notes).map((r) => (
             <div key={r.id} style={{ display: "flex", gap: "12px", padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-              <div style={{ width: 32, height: 32, borderRadius: "8px", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>📌</div>
+              <div style={{ width: 32, height: 32, borderRadius: "8px", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name="pin" size={16} /></div>
               <div>
                 <div style={{ fontWeight: 600, fontSize: ".88rem" }}>{r.name}</div>
                 <div style={{ fontSize: ".82rem", color: "var(--text-secondary)", marginTop: "2px" }}>{r.notes}</div>
@@ -1335,7 +1335,7 @@ function Maintenance({ restaurants, setRestaurants, addAudit, showToast }: {
           {restaurants.map((r) => (
             <div key={r.id} className="sa-maint-row">
               <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
-                <div style={{ width: 36, height: 36, borderRadius: "10px", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>🍽️</div>
+                <div style={{ width: 36, height: 36, borderRadius: "10px", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name="store" /></div>
                 <div style={{ flex: "0 0 160px" }}>
                   <div style={{ fontWeight: 600, fontSize: ".9rem" }}>{r.name}</div>
                   <div style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>{PLAN_LABELS[r.plan]} · {r.users} usuarios</div>
@@ -1433,7 +1433,7 @@ function Notifications({ showToast }: { showToast: (msg: string, type?: Toast["t
         <div className="sa-card" style={{ textAlign: "center", padding: "40px", color: "var(--text-secondary)" }}>Cargando...</div>
       ) : tickets.length === 0 ? (
         <div className="sa-card" style={{ textAlign: "center", padding: "48px", color: "var(--text-secondary)" }}>
-          <div style={{ fontSize: "2.5rem", marginBottom: "10px" }}>📭</div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "10px", color: "var(--text-muted)" }}><Icon name="inbox" size={40} /></div>
           <div style={{ fontWeight: 600 }}>Sin reportes pendientes</div>
         </div>
       ) : (
@@ -1463,7 +1463,7 @@ function Notifications({ showToast }: { showToast: (msg: string, type?: Toast["t
                     {!ticket.read && (
                       <button className="sa-btn" onClick={() => markRead(ticket.id, ticket.source)} style={{ fontSize: ".75rem", padding: "4px 10px" }}>✓ Leer</button>
                     )}
-                    <button className="sa-btn" onClick={() => deleteTicket(ticket.id, ticket.source)} style={{ fontSize: ".75rem", padding: "4px 10px", color: "#ef4444" }}>🗑</button>
+                    <button className="sa-btn" onClick={() => deleteTicket(ticket.id, ticket.source)} style={{ fontSize: ".75rem", padding: "4px 10px", color: "#ef4444" }}><Icon name="trash" size={14} /></button>
                   </div>
                 </div>
               </div>
@@ -1571,27 +1571,27 @@ function Permisos({ restaurants, addAudit, showToast }: {
 
       {/* Role tabs */}
       <div className="sa-tabs" style={{ marginBottom: "16px" }}>
-        <button className={`sa-tab${tab === "employee" ? " active" : ""}`} onClick={() => setTab("employee")}>👷 Empleado</button>
-        <button className={`sa-tab${tab === "user" ? " active" : ""}`} onClick={() => setTab("user")}>📱 Usuario / Cliente</button>
+        <button className={`sa-tab${tab === "employee" ? " active" : ""}`} onClick={() => setTab("employee")}><Icon name="user" size={15} /> Empleado</button>
+        <button className={`sa-tab${tab === "user" ? " active" : ""}`} onClick={() => setTab("user")}><Icon name="smartphone" size={15} /> Usuario / Cliente</button>
       </div>
 
       {/* Restaurant selector */}
       <div style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
-        <button className={`sa-chip${sel === "all" ? " active" : ""}`} onClick={() => setSel("all")}>🌐 Global</button>
+        <button className={`sa-chip${sel === "all" ? " active" : ""}`} onClick={() => setSel("all")}><Icon name="globe" size={13} /> Global</button>
         {restaurants.map((r) => (
           <button key={r.id} className={`sa-chip${sel === r.id ? " active" : ""}`} onClick={() => setSel(r.id)}>{r.name}</button>
         ))}
-        <button className={`sa-chip${sel === CONNECTED_PORTALES ? " active" : ""}`} onClick={() => setSel(CONNECTED_PORTALES)}>🏪 Portales</button>
+        <button className={`sa-chip${sel === CONNECTED_PORTALES ? " active" : ""}`} onClick={() => setSel(CONNECTED_PORTALES)}><Icon name="store" size={13} /> Portales</button>
       </div>
 
       <div className="sa-card">
         <div className="sa-card-header">
           <span className="sa-card-title">
-            {tab === "employee" ? "👷 Módulos del Empleado" : "📱 Módulos del Usuario/Cliente"}
+            <Icon name={tab === "employee" ? "user" : "smartphone"} size={17} /> {tab === "employee" ? "Módulos del Empleado" : "Módulos del Usuario/Cliente"}
             {" — "}{selName}
           </span>
-          <span style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>
-            🔒 = requiere aprobación del Super Admin para activar
+          <span style={{ fontSize: ".78rem", color: "var(--text-secondary)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+            <Icon name="lock" size={13} /> = requiere aprobación del Super Admin para activar
           </span>
         </div>
         <table className="sa-table">
@@ -1606,7 +1606,7 @@ function Permisos({ restaurants, addAudit, showToast }: {
                   <td>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                       <span style={{ fontWeight: 600 }}>{m.name}</span>
-                      {m.locked && <span title="Requiere aprobación del Super Admin" style={{ fontSize: ".8rem" }}>🔒</span>}
+                      {m.locked && <span title="Requiere aprobación del Super Admin" style={{ display: "flex", color: "var(--text-secondary)" }}><Icon name="lock" size={13} /></span>}
                     </div>
                   </td>
                   <td style={{ color: "var(--text-secondary)", fontSize: ".82rem" }}>{m.desc}</td>
@@ -1631,11 +1631,11 @@ function Permisos({ restaurants, addAudit, showToast }: {
 
       {/* Info box */}
       <div style={{ marginTop: "16px", padding: "16px", background: "rgba(59,130,246,.08)", border: "1px solid rgba(59,130,246,.2)", borderRadius: "12px" }}>
-        <div style={{ fontWeight: 700, color: "#60a5fa", marginBottom: "8px" }}>ℹ️ Cómo funciona la jerarquía de permisos</div>
+        <div style={{ fontWeight: 700, color: "#60a5fa", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}><Icon name="info" size={16} /> Cómo funciona la jerarquía de permisos</div>
         <div style={{ fontSize: ".84rem", color: "var(--text-secondary)", lineHeight: 1.7 }}>
           <div>• El <strong style={{ color: "var(--text-primary)" }}>Super Admin</strong> (tú) controla qué módulos existen en la plataforma.</div>
           <div>• El <strong style={{ color: "var(--text-primary)" }}>Admin del restaurante</strong> solo puede activar lo que el Super Admin dejó habilitado.</div>
-          <div>• Los módulos con 🔒 requieren que <strong style={{ color: "var(--text-primary)" }}>el Super Admin los apruebe</strong> antes de que el admin pueda usarlos.</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>• Los módulos con <Icon name="lock" size={13} /> requieren que <strong style={{ color: "var(--text-primary)" }}>el Super Admin los apruebe</strong> antes de que el admin pueda usarlos.</div>
           <div>• El <strong style={{ color: "var(--text-primary)" }}>Empleado y Usuario</strong> solo ven lo que ambos niveles superiores autorizaron.</div>
         </div>
       </div>
@@ -1659,7 +1659,7 @@ function Solicitudes({ requests, setRequests, addAudit, showToast }: {
     setRequests((p) => p.map((x) => x.id === r.id ? { ...x, status: "approved" } : x));
     fetch(`/api/superadmin/requests/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'approved' }) }).catch(() => {})
     addAudit("Solicitud aprobada", `${r.feature} — ${r.restaurantName}`, "update", r.restaurantName);
-    showToast(`✅ Aprobado: ${r.feature} para ${r.restaurantName}`);
+    showToast(`Aprobado: ${r.feature} para ${r.restaurantName}`);
   };
 
   const reject = () => {
@@ -1686,10 +1686,10 @@ function Solicitudes({ requests, setRequests, addAudit, showToast }: {
 
       <div className="sa-tabs">
         <button className={`sa-tab${tab === "pending" ? " active" : ""}`} onClick={() => setTab("pending")}>
-          ⏳ Pendientes {pending > 0 && `(${pending})`}
+          <Icon name="clock" size={15} /> Pendientes {pending > 0 && `(${pending})`}
         </button>
-        <button className={`sa-tab${tab === "approved" ? " active" : ""}`} onClick={() => setTab("approved")}>✅ Aprobadas</button>
-        <button className={`sa-tab${tab === "rejected" ? " active" : ""}`} onClick={() => setTab("rejected")}>❌ Rechazadas</button>
+        <button className={`sa-tab${tab === "approved" ? " active" : ""}`} onClick={() => setTab("approved")}><Icon name="check-circle" size={15} /> Aprobadas</button>
+        <button className={`sa-tab${tab === "rejected" ? " active" : ""}`} onClick={() => setTab("rejected")}><Icon name="x-circle" size={15} /> Rechazadas</button>
       </div>
 
       {filtered.length === 0 ? (
@@ -1709,7 +1709,7 @@ function Solicitudes({ requests, setRequests, addAudit, showToast }: {
                     </Badge>
                   </div>
                   <div style={{ fontSize: ".86rem", marginBottom: "6px" }}>
-                    Solicita activar: <strong style={{ color: "var(--accent)" }}>🔓 {r.feature}</strong>
+                    Solicita activar: <strong style={{ color: "var(--accent)", display: "inline-flex", alignItems: "center", gap: "4px" }}><Icon name="unlock" size={14} /> {r.feature}</strong>
                   </div>
                   <div style={{ fontSize: ".82rem", color: "var(--text-secondary)", marginBottom: "4px" }}>
                     Razón: <em>"{r.reason}"</em>
@@ -1726,10 +1726,10 @@ function Solicitudes({ requests, setRequests, addAudit, showToast }: {
                 {tab === "pending" && (
                   <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
                     <button className="sa-btn primary" style={{ background: "var(--accent)", borderColor: "var(--accent)", color: "#000" }} onClick={() => approve(r)}>
-                      ✅ Aprobar
+                      <Icon name="check-circle" size={16} /> Aprobar
                     </button>
                     <button className="sa-btn danger" onClick={() => { setRejectModal(r); setRejectReason(""); }}>
-                      ❌ Rechazar
+                      <Icon name="x-circle" size={16} /> Rechazar
                     </button>
                   </div>
                 )}
@@ -1812,7 +1812,7 @@ function Seguridad({ restaurants, showToast, addAudit }: {
           <div className="sa-section-title"><Icon name="shield" size={22} /> Seguridad</div>
           <div className="sa-section-sub">Protege el acceso de empleados y usuarios por restaurante</div>
         </div>
-        <button className="sa-btn primary" onClick={save}>💾 Guardar</button>
+        <button className="sa-btn primary" onClick={save}><Icon name="save" size={16} /> Guardar</button>
       </div>
 
       {/* Restaurant selector */}
@@ -1827,7 +1827,7 @@ function Seguridad({ restaurants, showToast, addAudit }: {
 
           {/* Sesión y acceso */}
           <div className="sa-card">
-            <div className="sa-card-header"><span className="sa-card-title">⏱️ Sesión y acceso</span></div>
+            <div className="sa-card-header"><span className="sa-card-title"><Icon name="clock" size={17} /> Sesión y acceso</span></div>
             <div className="sa-card-body">
               <div style={rowStyle}>
                 <div>
@@ -1867,7 +1867,7 @@ function Seguridad({ restaurants, showToast, addAudit }: {
 
           {/* Horario de acceso */}
           <div className="sa-card">
-            <div className="sa-card-header"><span className="sa-card-title">🕐 Horario de acceso</span></div>
+            <div className="sa-card-header"><span className="sa-card-title"><Icon name="clock" size={17} /> Horario de acceso</span></div>
             <div className="sa-card-body">
               <p style={{ fontSize: ".84rem", color: "var(--text-secondary)", marginBottom: "16px" }}>
                 Los empleados solo pueden iniciar sesión dentro de este horario. Fuera de él, el acceso queda bloqueado.
@@ -1898,7 +1898,7 @@ function Seguridad({ restaurants, showToast, addAudit }: {
 
           {/* Resumen visual */}
           <div className="sa-card" style={{ gridColumn: "1 / -1" }}>
-            <div className="sa-card-header"><span className="sa-card-title">📋 Resumen de seguridad — {restaurant?.name}</span></div>
+            <div className="sa-card-header"><span className="sa-card-title"><Icon name="clipboard" size={17} /> Resumen de seguridad — {restaurant?.name}</span></div>
             <div className="sa-card-body" style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
               {[
                 { label: "Sesión empleado",    value: `${cfg.sessionHours} horas`,                     ok: cfg.sessionHours <= 10 },
@@ -1983,16 +1983,16 @@ function VentasReales() {
           {/* Desglose del día */}
           <div className="sa-grid-2" style={{ marginBottom: '16px' }}>
             <div className="sa-card">
-              <div className="sa-card-header"><span className="sa-card-title">📆 Hoy — {app.today.orders} pedidos</span></div>
+              <div className="sa-card-header"><span className="sa-card-title"><Icon name="calendar" size={17} /> Hoy — {app.today.orders} pedidos</span></div>
               <div className="sa-card-body">
-                {[
-                  { label: '💵 Efectivo',       value: app.today.efectivo },
-                  { label: '💳 Tarjeta',         value: app.today.tarjeta },
-                  { label: '📲 Transferencia',   value: app.today.transferencia },
-                  { label: '🛵 Domicilio',       value: app.today.domicilio },
-                ].map(({ label, value }) => (
+                {([
+                  { icon: 'dollar',       label: 'Efectivo',       value: app.today.efectivo },
+                  { icon: 'credit-card',  label: 'Tarjeta',         value: app.today.tarjeta },
+                  { icon: 'smartphone',   label: 'Transferencia',   value: app.today.transferencia },
+                  { icon: 'package',      label: 'Domicilio',       value: app.today.domicilio },
+                ] as { icon: IconName; label: string; value: number }[]).map(({ icon, label, value }) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: '.88rem' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+                    <span style={{ color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Icon name={icon} size={15} /> {label}</span>
                     <span style={{ fontWeight: 700, color: value > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>{fmt(value)}</span>
                   </div>
                 ))}
@@ -2003,16 +2003,16 @@ function VentasReales() {
             </div>
 
             <div className="sa-card">
-              <div className="sa-card-header"><span className="sa-card-title">📅 Este mes — {app.month.orders} pedidos</span></div>
+              <div className="sa-card-header"><span className="sa-card-title"><Icon name="calendar" size={17} /> Este mes — {app.month.orders} pedidos</span></div>
               <div className="sa-card-body">
-                {[
-                  { label: '💵 Efectivo',       value: app.month.efectivo },
-                  { label: '💳 Tarjeta',         value: app.month.tarjeta },
-                  { label: '📲 Transferencia',   value: app.month.transferencia },
-                  { label: '🛵 Domicilio',       value: app.month.domicilio },
-                ].map(({ label, value }) => (
+                {([
+                  { icon: 'dollar',       label: 'Efectivo',       value: app.month.efectivo },
+                  { icon: 'credit-card',  label: 'Tarjeta',         value: app.month.tarjeta },
+                  { icon: 'smartphone',   label: 'Transferencia',   value: app.month.transferencia },
+                  { icon: 'package',      label: 'Domicilio',       value: app.month.domicilio },
+                ] as { icon: IconName; label: string; value: number }[]).map(({ icon, label, value }) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: '.88rem' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+                    <span style={{ color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Icon name={icon} size={15} /> {label}</span>
                     <span style={{ fontWeight: 700, color: value > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>{fmt(value)}</span>
                   </div>
                 ))}
@@ -2025,7 +2025,7 @@ function VentasReales() {
 
           {/* Historial de cortes */}
           <div className="sa-card">
-            <div className="sa-card-header"><span className="sa-card-title">🗂️ Últimos cortes de caja</span></div>
+            <div className="sa-card-header"><span className="sa-card-title"><Icon name="archive" size={17} /> Últimos cortes de caja</span></div>
             {app.historial.length === 0 ? (
               <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '.86rem' }}>Sin cortes registrados aún</div>
             ) : (
@@ -2066,7 +2066,9 @@ function VentasReales() {
 type IconName = "bar-chart" | "trending-up" | "store" | "flag" | "lock" | "inbox" | "shield"
   | "credit-card" | "dollar" | "gem" | "tag" | "search" | "wrench" | "bell"
   | "alert-triangle" | "users" | "calendar" | "check-circle" | "circle" | "target"
-  | "sun" | "moon";
+  | "sun" | "moon" | "plus" | "edit" | "trash" | "eye" | "x-circle" | "info" | "ban"
+  | "download" | "globe" | "save" | "clipboard" | "shuffle" | "user" | "smartphone"
+  | "clock" | "unlock" | "package" | "archive" | "pin";
 
 function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -2093,6 +2095,25 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
     case "target":          return <svg {...p}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none" /></svg>;
     case "sun":             return <svg {...p}><circle cx="12" cy="12" r="4" /><line x1="12" y1="2" x2="12" y2="4.5" /><line x1="12" y1="19.5" x2="12" y2="22" /><line x1="4.2" y1="4.2" x2="5.9" y2="5.9" /><line x1="18.1" y1="18.1" x2="19.8" y2="19.8" /><line x1="2" y1="12" x2="4.5" y2="12" /><line x1="19.5" y1="12" x2="22" y2="12" /><line x1="4.2" y1="19.8" x2="5.9" y2="18.1" /><line x1="18.1" y1="5.9" x2="19.8" y2="4.2" /></svg>;
     case "moon":            return <svg {...p}><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" /></svg>;
+    case "plus":            return <svg {...p}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>;
+    case "edit":            return <svg {...p}><path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3z" /><path d="M13.5 8l2.5 2.5" /></svg>;
+    case "trash":           return <svg {...p}><path d="M4 7h16" /><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>;
+    case "eye":             return <svg {...p}><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg>;
+    case "x-circle":        return <svg {...p}><circle cx="12" cy="12" r="8.5" /><line x1="9" y1="9" x2="15" y2="15" /><line x1="15" y1="9" x2="9" y2="15" /></svg>;
+    case "info":            return <svg {...p}><circle cx="12" cy="12" r="8.5" /><line x1="12" y1="11" x2="12" y2="16" /><circle cx="12" cy="7.7" r="0.9" fill="currentColor" stroke="none" /></svg>;
+    case "ban":             return <svg {...p}><circle cx="12" cy="12" r="8.5" /><line x1="6.5" y1="17.5" x2="17.5" y2="6.5" /></svg>;
+    case "download":        return <svg {...p}><path d="M12 3v12" /><polyline points="7.5 10.5 12 15 16.5 10.5" /><path d="M4.5 17.5v2a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-2" /></svg>;
+    case "globe":           return <svg {...p}><circle cx="12" cy="12" r="8.5" /><line x1="3.5" y1="12" x2="20.5" y2="12" /><path d="M12 3.5c2.5 2.3 4 5.3 4 8.5s-1.5 6.2-4 8.5c-2.5-2.3-4-5.3-4-8.5s1.5-6.2 4-8.5z" /></svg>;
+    case "save":            return <svg {...p}><path d="M5 4h11l3 3v13H5z" /><path d="M8 4v5h7V4" /><path d="M8 14h8v6H8z" /></svg>;
+    case "clipboard":       return <svg {...p}><rect x="6" y="4" width="12" height="17" rx="1.5" /><rect x="9" y="2.5" width="6" height="3" rx="1" /><line x1="9" y1="11" x2="15" y2="11" /><line x1="9" y1="15" x2="15" y2="15" /></svg>;
+    case "shuffle":         return <svg {...p}><polyline points="15.5 5 19.5 5 19.5 9" /><line x1="4.5" y1="19" x2="19.5" y2="5" /><polyline points="15.5 19 19.5 19 19.5 15" /><path d="M4.5 5h3.5l3 4" /><path d="M11 15l3 4" /></svg>;
+    case "user":            return <svg {...p}><circle cx="12" cy="8" r="3.5" /><path d="M4.5 20c0-4.1 3.4-7 7.5-7s7.5 2.9 7.5 7" /></svg>;
+    case "smartphone":      return <svg {...p}><rect x="7" y="2.5" width="10" height="19" rx="2" /><line x1="10.5" y1="18.3" x2="13.5" y2="18.3" /></svg>;
+    case "clock":           return <svg {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></svg>;
+    case "unlock":          return <svg {...p}><rect x="5" y="11" width="14" height="9" rx="1.5" /><path d="M8 11V7a4 4 0 0 1 7.6-1.8" /></svg>;
+    case "package":         return <svg {...p}><path d="M12 3l8 4.2v9.6L12 21l-8-4.2V7.2z" /><path d="M4 7.2 12 11l8-3.8" /><line x1="12" y1="11" x2="12" y2="21" /></svg>;
+    case "archive":         return <svg {...p}><rect x="3.5" y="4" width="17" height="5" rx="1.2" /><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9" /><line x1="10" y1="13" x2="14" y2="13" /></svg>;
+    case "pin":             return <svg {...p}><path d="M12 21s-6.5-5.8-6.5-11A6.5 6.5 0 0 1 18.5 10c0 5.2-6.5 11-6.5 11z" /><circle cx="12" cy="10" r="2.3" /></svg>;
   }
 }
 
@@ -2234,7 +2255,7 @@ function Dashboard({ onLogout, theme, toggleTheme }: { onLogout: () => void; the
       <div className="sa-main">
         {showAlert && (
           <div className="sa-alert-banner danger">
-            <span>🔴</span>
+            <span style={{ display: "flex" }}><Icon name="alert-triangle" size={18} /></span>
             <span><strong>{debtRestaurants.length} restaurante{debtRestaurants.length > 1 ? "s" : ""}</strong> con saldo pendiente: {debtRestaurants.map((r) => `${r.name} ($${r.balance.toLocaleString()})`).join(", ")}</span>
             <button className="sa-alert-dismiss" onClick={() => setAlertDismissed(true)}>✕</button>
           </div>

@@ -271,7 +271,7 @@
   display: flex; align-items: center; justify-content: space-between;
   padding: 16px 20px;
 }
-.sa-card-title { font-weight: 700; font-size: .95rem; color: var(--text-primary); }
+.sa-card-title { font-weight: 700; font-size: .95rem; color: var(--text-primary); display: inline-flex; align-items: center; gap: 7px; }
 .sa-card-body { padding: 0 20px 20px; }
 
 /* ─── TABLE ─── */
@@ -333,6 +333,7 @@
   padding: 4px; border-radius: var(--radius-xs); width: fit-content;
 }
 .sa-tab {
+  display: inline-flex; align-items: center; gap: 6px;
   padding: 7px 18px; border-radius: 6px;
   font-size: .82rem; font-weight: 600; cursor: pointer;
   color: var(--text-secondary); border: none; background: none; font-family: inherit;
@@ -382,6 +383,7 @@
 /* ─── ROLES CHIP GROUP ─── */
 .sa-role-chips { display: flex; gap: 4px; flex-wrap: wrap; }
 .sa-chip {
+  display: inline-flex; align-items: center; gap: 5px;
   padding: 3px 10px; border-radius: 20px; font-size: .72rem; font-weight: 600;
   border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-secondary);
   cursor: pointer; transition: all var(--transition); font-family: inherit;
