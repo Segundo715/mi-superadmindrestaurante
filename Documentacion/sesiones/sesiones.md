@@ -68,3 +68,11 @@ app/superadmin/components/SuperAdmin.tsx,app/superadmin/superadmin.css
 app/superadmin/components/SuperAdmin.tsx,app/superadmin/superadmin.css
 
 ---
+
+## 2026-07-16 — Thursday
+
+### 11:28 AM — main
+**fix: quitar titulo duplicado del topbar en el dashboard de Super Admin**
+app/superadmin/components/SuperAdmin.tsx,app/superadmin/superadmin.css
+
+---
