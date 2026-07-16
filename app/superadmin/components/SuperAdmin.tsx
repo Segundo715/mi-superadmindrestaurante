@@ -213,7 +213,7 @@ function Overview({ restaurants, setView }: { restaurants: Restaurant[]; setView
   return (
     <div>
       <div className="sa-section-header">
-        <div><div className="sa-section-title">📊 Métricas globales</div><div className="sa-section-sub">Resumen de toda la plataforma</div></div>
+        <div><div className="sa-section-title"><Icon name="bar-chart" size={22} /> Métricas globales</div><div className="sa-section-sub">Resumen de toda la plataforma</div></div>
         <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: ".82rem", color: "var(--text-secondary)" }}>
           <span className="sa-live" /> EN VIVO
         </div>
@@ -222,22 +222,22 @@ function Overview({ restaurants, setView }: { restaurants: Restaurant[]; setView
       {/* Cada KPI card es navegable: clic lleva directamente a la sección correspondiente. */}
       <div className="sa-kpi-strip">
         <div className="sa-kpi-card" style={{ cursor: "pointer" }} onClick={() => setView("restaurants")}>
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Restaurantes activos</span><div className="sa-kpi-icon" style={{ background: "rgba(0,230,118,.1)", color: "var(--accent)" }}>🏪</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Restaurantes activos</span><div className="sa-kpi-icon" style={{ background: "rgba(0,230,118,.1)", color: "var(--accent)" }}><Icon name="store" /></div></div>
           <div className="sa-kpi-value">{active}</div>
           <div className="sa-kpi-delta">de {restaurants.length} totales →</div>
         </div>
         <div className="sa-kpi-card" style={{ cursor: "pointer" }} onClick={() => setView("billing")}>
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Ingresos del mes</span><div className="sa-kpi-icon" style={{ background: "rgba(99,102,241,.15)", color: "#818cf8" }}>💰</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Ingresos del mes</span><div className="sa-kpi-icon" style={{ background: "rgba(99,102,241,.15)", color: "#818cf8" }}><Icon name="dollar" /></div></div>
           <div className="sa-kpi-value">${revenue.toLocaleString()}</div>
           <div className="sa-kpi-delta">planes activos →</div>
         </div>
         <div className="sa-kpi-card" style={{ cursor: "pointer" }} onClick={() => setView("billing")}>
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Tasa de morosidad</span><div className="sa-kpi-icon" style={{ background: withDebt > 0 ? "rgba(239,68,68,.12)" : "rgba(0,230,118,.1)", color: withDebt > 0 ? "#ef4444" : "var(--accent)" }}>⚠️</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Tasa de morosidad</span><div className="sa-kpi-icon" style={{ background: withDebt > 0 ? "rgba(239,68,68,.12)" : "rgba(0,230,118,.1)", color: withDebt > 0 ? "#ef4444" : "var(--accent)" }}><Icon name="alert-triangle" /></div></div>
           <div className="sa-kpi-value" style={{ color: withDebt > 0 ? "#ef4444" : undefined }}>{Math.round((withDebt / restaurants.length) * 100)}%</div>
           <div className={`sa-kpi-delta${withDebt > 0 ? " down" : ""}`}>{withDebt} con saldo →</div>
         </div>
         <div className="sa-kpi-card">
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Usuarios totales</span><div className="sa-kpi-icon" style={{ background: "rgba(59,130,246,.12)", color: "#60a5fa" }}>👥</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Usuarios totales</span><div className="sa-kpi-icon" style={{ background: "rgba(59,130,246,.12)", color: "#60a5fa" }}><Icon name="users" /></div></div>
           <div className="sa-kpi-value">{totalUsers}</div>
           <div className="sa-kpi-delta">en {restaurants.length} restaurantes</div>
         </div>
@@ -338,7 +338,7 @@ function Restaurants({
   return (
     <div>
       <div className="sa-section-header">
-        <div><div className="sa-section-title">🏪 Restaurantes</div><div className="sa-section-sub">{restaurants.length} registrados · {restaurants.filter((r) => r.status === "active").length} activos</div></div>
+        <div><div className="sa-section-title"><Icon name="store" size={22} /> Restaurantes</div><div className="sa-section-sub">{restaurants.length} registrados · {restaurants.filter((r) => r.status === "active").length} activos</div></div>
         <button className="sa-btn primary" onClick={() => setShowNewForm(true)}>+ Registrar restaurante</button>
       </div>
 
@@ -562,7 +562,7 @@ function FeatureFlags({
   return (
     <div>
       <div className="sa-section-header">
-        <div><div className="sa-section-title">🚩 Feature Flags</div><div className="sa-section-sub">Activa o bloquea módulos por restaurante y por rol</div></div>
+        <div><div className="sa-section-title"><Icon name="flag" size={22} /> Feature Flags</div><div className="sa-section-sub">Activa o bloquea módulos por restaurante y por rol</div></div>
         <button className="sa-btn" onClick={() => {
           const blob = new Blob([JSON.stringify(flags, null, 2)], { type: "application/json" });
           const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
@@ -675,22 +675,22 @@ function Billing({
   return (
     <div>
       <div className="sa-section-header">
-        <div><div className="sa-section-title">💳 Cuentas y pagos</div><div className="sa-section-sub">Historial, deudas y planes de todos los restaurantes</div></div>
+        <div><div className="sa-section-title"><Icon name="credit-card" size={22} /> Cuentas y pagos</div><div className="sa-section-sub">Historial, deudas y planes de todos los restaurantes</div></div>
       </div>
 
       <div className="sa-kpi-strip" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
         <div className="sa-kpi-card">
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Al corriente</span><div className="sa-kpi-icon" style={{ background: "rgba(0,230,118,.1)", color: "var(--accent)" }}>✅</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Al corriente</span><div className="sa-kpi-icon" style={{ background: "rgba(0,230,118,.1)", color: "var(--accent)" }}><Icon name="check-circle" /></div></div>
           <div className="sa-kpi-value">{restaurants.filter((r) => r.balance === 0).length}</div>
           <div className="sa-kpi-delta">restaurantes</div>
         </div>
         <div className="sa-kpi-card">
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Deuda acumulada</span><div className="sa-kpi-icon" style={{ background: "rgba(239,68,68,.12)", color: "#ef4444" }}>🔴</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Deuda acumulada</span><div className="sa-kpi-icon" style={{ background: "rgba(239,68,68,.12)", color: "#ef4444" }}><Icon name="alert-triangle" /></div></div>
           <div className="sa-kpi-value" style={{ color: total > 0 ? "#ef4444" : undefined }}>${total.toLocaleString()}</div>
           <div className={`sa-kpi-delta${total > 0 ? " down" : ""}`}>{restaurants.filter((r) => r.balance > 0).length} con saldo</div>
         </div>
         <div className="sa-kpi-card">
-          <div className="sa-kpi-top"><span className="sa-kpi-label">MRR activo</span><div className="sa-kpi-icon" style={{ background: "rgba(99,102,241,.12)", color: "#818cf8" }}>📈</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">MRR activo</span><div className="sa-kpi-icon" style={{ background: "rgba(99,102,241,.12)", color: "#818cf8" }}><Icon name="trending-up" /></div></div>
           <div className="sa-kpi-value">${revenue.toLocaleString()}</div>
           <div className="sa-kpi-delta">este mes</div>
         </div>
@@ -770,7 +770,7 @@ function AuditLog({ log, showToast }: { log: AuditEntry[]; showToast: (msg: stri
   return (
     <div>
       <div className="sa-section-header">
-        <div><div className="sa-section-title">🔍 Auditoría</div><div className="sa-section-sub">{log.length} registros · quién hizo qué y cuándo</div></div>
+        <div><div className="sa-section-title"><Icon name="search" size={22} /> Auditoría</div><div className="sa-section-sub">{log.length} registros · quién hizo qué y cuándo</div></div>
         <button className="sa-btn" onClick={exportCSV}>⬇ Exportar CSV</button>
       </div>
 
@@ -876,7 +876,7 @@ function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAu
   return (
     <div>
       <div className="sa-section-header">
-        <div><div className="sa-section-title">💎 Planes y niveles</div><div className="sa-section-sub">Edita precio, usuarios y características de cada plan</div></div>
+        <div><div className="sa-section-title"><Icon name="gem" size={22} /> Planes y niveles</div><div className="sa-section-sub">Edita precio, usuarios y características de cada plan</div></div>
       </div>
 
       {/* Plan cards */}
@@ -1089,21 +1089,21 @@ function Discounts({ addAudit, showToast }: {
   return (
     <div>
       <div className="sa-section-header">
-        <div><div className="sa-section-title">🎟️ Códigos de descuento</div><div className="sa-section-sub">Genera y gestiona cupones para tus restaurantes</div></div>
+        <div><div className="sa-section-title"><Icon name="tag" size={22} /> Códigos de descuento</div><div className="sa-section-sub">Genera y gestiona cupones para tus restaurantes</div></div>
         <button className="sa-btn primary" onClick={() => setShowForm(true)}>+ Nuevo código</button>
       </div>
 
       <div className="sa-kpi-strip" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
         <div className="sa-kpi-card">
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Códigos activos</span><div className="sa-kpi-icon" style={{ background: "rgba(0,230,118,.1)", color: "var(--accent)" }}>✅</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Códigos activos</span><div className="sa-kpi-icon" style={{ background: "rgba(0,230,118,.1)", color: "var(--accent)" }}><Icon name="check-circle" /></div></div>
           <div className="sa-kpi-value">{codes.filter((c) => c.active).length}</div>
         </div>
         <div className="sa-kpi-card">
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Usos totales</span><div className="sa-kpi-icon" style={{ background: "rgba(99,102,241,.12)", color: "#818cf8" }}>📊</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Usos totales</span><div className="sa-kpi-icon" style={{ background: "rgba(99,102,241,.12)", color: "#818cf8" }}><Icon name="bar-chart" /></div></div>
           <div className="sa-kpi-value">{codes.reduce((s, c) => s + c.uses, 0)}</div>
         </div>
         <div className="sa-kpi-card">
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Tasa de uso</span><div className="sa-kpi-icon" style={{ background: "rgba(251,191,36,.12)", color: "#fbbf24" }}>🎯</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Tasa de uso</span><div className="sa-kpi-icon" style={{ background: "rgba(251,191,36,.12)", color: "#fbbf24" }}><Icon name="target" /></div></div>
           <div className="sa-kpi-value">
             {codes.reduce((s, c) => s + c.maxUses, 0) > 0
               ? Math.round((codes.reduce((s, c) => s + c.uses, 0) / codes.reduce((s, c) => s + c.maxUses, 0)) * 100)
@@ -1223,27 +1223,27 @@ function Activity({ restaurants }: { restaurants: Restaurant[] }) {
   return (
     <div>
       <div className="sa-section-header">
-        <div><div className="sa-section-title">📈 Actividad</div><div className="sa-section-sub">Saldo y uso de cada restaurante en la plataforma</div></div>
+        <div><div className="sa-section-title"><Icon name="trending-up" size={22} /> Actividad</div><div className="sa-section-sub">Saldo y uso de cada restaurante en la plataforma</div></div>
       </div>
 
       <div className="sa-kpi-strip">
         <div className="sa-kpi-card">
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Muy activos</span><div className="sa-kpi-icon" style={{ background: "rgba(0,230,118,.1)", color: "var(--accent)" }}>🟢</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Muy activos</span><div className="sa-kpi-icon" style={{ background: "rgba(0,230,118,.1)", color: "var(--accent)" }}><Icon name="circle" /></div></div>
           <div className="sa-kpi-value">{restaurants.filter((r) => r.loginCount > 200).length}</div>
           <div className="sa-kpi-delta">+200 logins/mes</div>
         </div>
         <div className="sa-kpi-card">
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Poco activos</span><div className="sa-kpi-icon" style={{ background: "rgba(251,191,36,.12)", color: "#fbbf24" }}>🟡</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Poco activos</span><div className="sa-kpi-icon" style={{ background: "rgba(251,191,36,.12)", color: "#fbbf24" }}><Icon name="circle" /></div></div>
           <div className="sa-kpi-value">{restaurants.filter((r) => r.loginCount > 0 && r.loginCount <= 50 && r.status === "active").length}</div>
           <div className="sa-kpi-delta">riesgo de churn</div>
         </div>
         <div className="sa-kpi-card">
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Sin actividad</span><div className="sa-kpi-icon" style={{ background: "rgba(239,68,68,.12)", color: "#ef4444" }}>🔴</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Sin actividad</span><div className="sa-kpi-icon" style={{ background: "rgba(239,68,68,.12)", color: "#ef4444" }}><Icon name="circle" /></div></div>
           <div className="sa-kpi-value">{restaurants.filter((r) => r.loginCount === 0).length}</div>
           <div className="sa-kpi-delta">nunca iniciaron</div>
         </div>
         <div className="sa-kpi-card">
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Promedio logins</span><div className="sa-kpi-icon" style={{ background: "rgba(99,102,241,.12)", color: "#818cf8" }}>📊</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Promedio logins</span><div className="sa-kpi-icon" style={{ background: "rgba(99,102,241,.12)", color: "#818cf8" }}><Icon name="bar-chart" /></div></div>
           <div className="sa-kpi-value">{avgLogins}</div>
           <div className="sa-kpi-delta">por restaurante</div>
         </div>
@@ -1327,7 +1327,7 @@ function Maintenance({ restaurants, setRestaurants, addAudit, showToast }: {
   return (
     <div>
       <div className="sa-section-header">
-        <div><div className="sa-section-title">🔧 Modo mantenimiento</div><div className="sa-section-sub">Bloquea el acceso a un restaurante sin afectar los demás</div></div>
+        <div><div className="sa-section-title"><Icon name="wrench" size={22} /> Modo mantenimiento</div><div className="sa-section-sub">Bloquea el acceso a un restaurante sin afectar los demás</div></div>
         <Badge type="warning">{restaurants.filter((r) => r.status === "maintenance").length} en mantenimiento</Badge>
       </div>
       <div className="sa-card">
@@ -1420,7 +1420,7 @@ function Notifications({ showToast }: { showToast: (msg: string, type?: Toast["t
     <div>
       <div className="sa-section-header">
         <div>
-          <div className="sa-section-title">🔔 Reportes de soporte</div>
+          <div className="sa-section-title"><Icon name="bell" size={22} /> Reportes de soporte</div>
           <div className="sa-section-sub">Mensajes enviados por empleados, Resta3 y admins de los restaurantes</div>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
@@ -1564,7 +1564,7 @@ function Permisos({ restaurants, addAudit, showToast }: {
     <div>
       <div className="sa-section-header">
         <div>
-          <div className="sa-section-title">🔐 Permisos por rol</div>
+          <div className="sa-section-title"><Icon name="lock" size={22} /> Permisos por rol</div>
           <div className="sa-section-sub">Controla qué puede hacer cada empleado y cada cliente</div>
         </div>
       </div>
@@ -1678,7 +1678,7 @@ function Solicitudes({ requests, setRequests, addAudit, showToast }: {
     <div>
       <div className="sa-section-header">
         <div>
-          <div className="sa-section-title">📬 Solicitudes de acceso</div>
+          <div className="sa-section-title"><Icon name="inbox" size={22} /> Solicitudes de acceso</div>
           <div className="sa-section-sub">Aprueba o rechaza peticiones de los admins para desbloquear funciones</div>
         </div>
         {pending > 0 && <Badge type="warning">{pending} pendiente{pending > 1 ? "s" : ""}</Badge>}
@@ -1809,7 +1809,7 @@ function Seguridad({ restaurants, showToast, addAudit }: {
     <div>
       <div className="sa-section-header">
         <div>
-          <div className="sa-section-title">🛡️ Seguridad</div>
+          <div className="sa-section-title"><Icon name="shield" size={22} /> Seguridad</div>
           <div className="sa-section-sub">Protege el acceso de empleados y usuarios por restaurante</div>
         </div>
         <button className="sa-btn primary" onClick={save}>💾 Guardar</button>
@@ -1947,24 +1947,24 @@ function VentasReales() {
   return (
     <div>
       <div className="sa-section-header">
-        <div><div className="sa-section-title">💵 Ventas Reales</div><div className="sa-section-sub">Ingresos en tiempo real de cada restaurante conectado</div></div>
+        <div><div className="sa-section-title"><Icon name="dollar" size={22} /> Ventas Reales</div><div className="sa-section-sub">Ingresos en tiempo real de cada restaurante conectado</div></div>
       </div>
 
       {/* KPIs globales */}
       <div className="sa-kpi-strip">
         <div className="sa-kpi-card">
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Ventas hoy (todas)</span><div className="sa-kpi-icon" style={{ background: 'rgba(0,230,118,.1)', color: 'var(--accent)' }}>💰</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Ventas hoy (todas)</span><div className="sa-kpi-icon" style={{ background: 'rgba(0,230,118,.1)', color: 'var(--accent)' }}><Icon name="dollar" /></div></div>
           <div className="sa-kpi-value">{fmt(allToday)}</div>
           <div className="sa-kpi-delta">{data.reduce((s, d) => s + d.today.orders, 0)} pedidos hoy</div>
         </div>
         <div className="sa-kpi-card">
-          <div className="sa-kpi-top"><span className="sa-kpi-label">Ventas este mes</span><div className="sa-kpi-icon" style={{ background: 'rgba(99,102,241,.12)', color: '#818cf8' }}>📅</div></div>
+          <div className="sa-kpi-top"><span className="sa-kpi-label">Ventas este mes</span><div className="sa-kpi-icon" style={{ background: 'rgba(99,102,241,.12)', color: '#818cf8' }}><Icon name="calendar" /></div></div>
           <div className="sa-kpi-value">{fmt(allMonth)}</div>
           <div className="sa-kpi-delta">{allOrders} pedidos totales</div>
         </div>
         {data.map(d => (
           <div key={d.id} className="sa-kpi-card">
-            <div className="sa-kpi-top"><span className="sa-kpi-label">{d.name}</span><div className="sa-kpi-icon" style={{ background: 'rgba(251,191,36,.1)', color: '#fbbf24' }}>🏪</div></div>
+            <div className="sa-kpi-top"><span className="sa-kpi-label">{d.name}</span><div className="sa-kpi-icon" style={{ background: 'rgba(251,191,36,.1)', color: '#fbbf24' }}><Icon name="store" /></div></div>
             <div className="sa-kpi-value">{fmt(d.month.total)}</div>
             <div className="sa-kpi-delta">hoy: {fmt(d.today.total)}</div>
           </div>
@@ -2061,25 +2061,57 @@ function VentasReales() {
   )
 }
 
+// ─── Iconos (línea, planos — sin emoji) ───────────────────────────────────────
+
+type IconName = "bar-chart" | "trending-up" | "store" | "flag" | "lock" | "inbox" | "shield"
+  | "credit-card" | "dollar" | "gem" | "tag" | "search" | "wrench" | "bell"
+  | "alert-triangle" | "users" | "calendar" | "check-circle" | "circle" | "target";
+
+function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
+  const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  switch (name) {
+    case "bar-chart":       return <svg {...p}><line x1="4" y1="20" x2="4" y2="11" /><line x1="10" y1="20" x2="10" y2="5" /><line x1="16" y1="20" x2="16" y2="14" /><line x1="3" y1="20" x2="21" y2="20" /></svg>;
+    case "trending-up":     return <svg {...p}><polyline points="4 17 10 11 14 15 20 7" /><polyline points="14 7 20 7 20 13" /></svg>;
+    case "store":           return <svg {...p}><path d="M4 9l1-5h14l1 5" /><path d="M4 9v10h16V9" /><path d="M4 9h16" /><path d="M10 19v-5h4v5" /></svg>;
+    case "flag":            return <svg {...p}><path d="M5 21V4" /><path d="M5 4h13l-3 4 3 4H5" /></svg>;
+    case "lock":            return <svg {...p}><rect x="5" y="11" width="14" height="9" rx="1.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>;
+    case "inbox":           return <svg {...p}><rect x="3" y="6" width="18" height="13" rx="1.5" /><path d="M3 7l9 6 9-6" /></svg>;
+    case "shield":          return <svg {...p}><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" /></svg>;
+    case "credit-card":     return <svg {...p}><rect x="3" y="6" width="18" height="13" rx="1.8" /><line x1="3" y1="10.5" x2="21" y2="10.5" /></svg>;
+    case "dollar":          return <svg {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 7v10" /><path d="M14.5 9.3c0-1.2-1.1-2-2.5-2s-2.5.9-2.5 2c0 1.1.9 1.7 2.5 2.1 1.6.4 2.5 1 2.5 2.1 0 1.1-1.1 2-2.5 2s-2.5-.8-2.5-2" /></svg>;
+    case "gem":             return <svg {...p}><path d="M4 9L8 3h8l4 6-10 12L4 9Z" /><path d="M9 3l-3 6M15 3l3 6M4 9h16" /></svg>;
+    case "tag":             return <svg {...p}><path d="M12.6 3H5.4A2.4 2.4 0 0 0 3 5.4v7.2c0 .6.2 1.2.7 1.7l8.6 8.6c.9.9 2.4.9 3.4 0l6.2-6.2c.9-.9.9-2.4 0-3.4L13.3 3.7c-.5-.5-1.1-.7-1.7-.7z" /><circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none" /></svg>;
+    case "search":          return <svg {...p}><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.5" y2="16.5" /></svg>;
+    case "wrench":          return <svg {...p}><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.8 2.8-2-2 2.8-2.8z" /></svg>;
+    case "bell":            return <svg {...p}><path d="M6 8a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6.5H4c.5-1 2-2.5 2-6.5z" /><path d="M10 18.5a2 2 0 0 0 4 0" /></svg>;
+    case "alert-triangle":  return <svg {...p}><path d="M12 3.5l9.5 16.5H2.5L12 3.5z" /><line x1="12" y1="10" x2="12" y2="14.5" /><circle cx="12" cy="17.3" r="0.9" fill="currentColor" stroke="none" /></svg>;
+    case "users":           return <svg {...p}><circle cx="9" cy="8" r="3.2" /><path d="M3.5 19.5c0-3.3 2.5-6 5.5-6s5.5 2.7 5.5 6" /><circle cx="17.5" cy="9" r="2.4" /><path d="M15 13.2c2.6.4 4.5 2.6 4.5 6.3" /></svg>;
+    case "calendar":        return <svg {...p}><rect x="3.5" y="5" width="17" height="16" rx="1.8" /><line x1="3.5" y1="10" x2="20.5" y2="10" /><line x1="8" y1="3" x2="8" y2="7" /><line x1="16" y1="3" x2="16" y2="7" /></svg>;
+    case "check-circle":    return <svg {...p}><circle cx="12" cy="12" r="8.5" /><polyline points="8.5 12.3 11 14.8 15.5 9.5" /></svg>;
+    case "circle":          return <svg {...p}><circle cx="12" cy="12" r="7" fill="currentColor" stroke="none" /></svg>;
+    case "target":          return <svg {...p}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none" /></svg>;
+  }
+}
+
 // ─── Nav items ────────────────────────────────────────────────────────────────
 // `section` crea un separador/encabezado de grupo en el sidebar.
 // Los items sin `section` se agrupan bajo el encabezado del item anterior que sí lo tiene.
 
-const NAV: { view: View; icon: string; label: string; section?: string }[] = [
-  { view: "overview",      icon: "📊", label: "Métricas globales", section: "Principal" },
-  { view: "activity",      icon: "📈", label: "Actividad" },
-  { view: "restaurants",   icon: "🏪", label: "Restaurantes" },
-  { view: "flags",         icon: "🚩", label: "Feature Flags",     section: "Permisos y Control" },
-  { view: "permisos",      icon: "🔐", label: "Permisos por rol" },
-  { view: "solicitudes",   icon: "📬", label: "Solicitudes" },
-  { view: "seguridad",     icon: "🛡️", label: "Seguridad" },
-  { view: "billing",       icon: "💳", label: "Cuentas y Pagos",   section: "Gestión" },
-  { view: "ventas",        icon: "💵", label: "Ventas Reales" },
-  { view: "plans",         icon: "💎", label: "Planes" },
-  { view: "discounts",     icon: "🎟️", label: "Descuentos" },
-  { view: "audit",         icon: "🔍", label: "Auditoría",         section: "Config" },
-  { view: "maintenance",   icon: "🔧", label: "Mantenimiento" },
-  { view: "notifications", icon: "🔔", label: "Notificaciones" },
+const NAV: { view: View; icon: IconName; label: string; section?: string }[] = [
+  { view: "overview",      icon: "bar-chart",   label: "Métricas globales", section: "Principal" },
+  { view: "activity",      icon: "trending-up", label: "Actividad" },
+  { view: "restaurants",   icon: "store",       label: "Restaurantes" },
+  { view: "flags",         icon: "flag",        label: "Feature Flags",     section: "Permisos y Control" },
+  { view: "permisos",      icon: "lock",        label: "Permisos por rol" },
+  { view: "solicitudes",   icon: "inbox",       label: "Solicitudes" },
+  { view: "seguridad",     icon: "shield",      label: "Seguridad" },
+  { view: "billing",       icon: "credit-card", label: "Cuentas y Pagos",   section: "Gestión" },
+  { view: "ventas",        icon: "dollar",      label: "Ventas Reales" },
+  { view: "plans",         icon: "gem",         label: "Planes" },
+  { view: "discounts",     icon: "tag",         label: "Descuentos" },
+  { view: "audit",         icon: "search",      label: "Auditoría",         section: "Config" },
+  { view: "maintenance",   icon: "wrench",      label: "Mantenimiento" },
+  { view: "notifications", icon: "bell",        label: "Notificaciones" },
 ];
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
@@ -2158,7 +2190,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
       <aside className={`sa-sidebar${sidebarOpen ? " sa-sidebar--open" : ""}`}>
         <div className="sa-sidebar-header">
-          <div className="sa-sidebar-logo">🛡️</div>
+          <div className="sa-sidebar-logo" style={{ color: "#fff" }}><Icon name="shield" size={22} /></div>
           <div style={{ flex: 1 }}>
             <div className="sa-brand-name">NICHO</div>
             <div className="sa-brand-sub">Super Admin</div>
@@ -2175,7 +2207,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 className={`sa-nav-item${view === item.view ? " active" : ""}`}
                 onClick={() => { setView(item.view); setSidebarOpen(false); }}
               >
-                <span className="sa-nav-icon">{item.icon}</span>
+                <span className="sa-nav-icon"><Icon name={item.icon} /></span>
                 {item.label}
                 {item.view === "billing" && debtRestaurants.length > 0 && (
                   <span className="sa-nav-badge">{debtRestaurants.length}</span>
@@ -2210,15 +2242,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <span /><span /><span />
           </button>
           <div>
-            <div className="sa-topbar-title">{NAV.find((n) => n.view === view)?.icon} {NAV.find((n) => n.view === view)?.label}</div>
+            <div className="sa-topbar-title"><Icon name={NAV.find((n) => n.view === view)?.icon ?? "bar-chart"} size={20} /> {NAV.find((n) => n.view === view)?.label}</div>
             <div className="sa-topbar-sub">NICHO Platform · Super Admin</div>
           </div>
           <div className="sa-topbar-right">
             <button className="sa-topbar-btn" onClick={() => setView("billing")}>
-              💳 {debtRestaurants.length > 0 && <span className="sa-notif-badge">{debtRestaurants.length}</span>}
+              <Icon name="credit-card" /> {debtRestaurants.length > 0 && <span className="sa-notif-badge">{debtRestaurants.length}</span>}
             </button>
             <button className="sa-topbar-btn" onClick={() => { setView("notifications"); setUnreadTickets(0); }}>
-              🔔 {unreadTickets > 0 && <span className="sa-notif-badge">{unreadTickets}</span>}
+              <Icon name="bell" /> {unreadTickets > 0 && <span className="sa-notif-badge">{unreadTickets}</span>}
             </button>
           </div>
         </header>
