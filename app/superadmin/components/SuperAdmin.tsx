@@ -173,7 +173,7 @@ function ToastBanner({ toast }: { toast: Toast }) {
       animation: "fadeIn .2s ease",
     }}>
       <span>{icon[toast.type]}</span>
-      <span style={{ color: "#eef2f7" }}>{toast.msg}</span>
+      <span style={{ color: "var(--text-primary)" }}>{toast.msg}</span>
     </div>
   );
 }
@@ -186,12 +186,12 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
       background: "rgba(0,0,0,.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px",
     }} onClick={onClose}>
       <div style={{
-        background: "#0e1225", border: "1px solid rgba(255,255,255,.12)", borderRadius: "16px",
+        background: "var(--bg-card)", border: "1px solid var(--border-light)", borderRadius: "16px",
         width: "100%", maxWidth: "520px", maxHeight: "80vh", overflowY: "auto",
       }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid rgba(255,255,255,.07)" }}>
-          <span style={{ fontWeight: 700, fontSize: "1rem", color: "#fff" }}>{title}</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#6b7a94", fontSize: "1.2rem", cursor: "pointer" }}>✕</button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border)" }}>
+          <span style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)" }}>{title}</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: "1.2rem", cursor: "pointer" }}>✕</button>
         </div>
         <div style={{ padding: "24px" }}>{children}</div>
       </div>
@@ -273,7 +273,7 @@ function Overview({ restaurants, setView }: { restaurants: Restaurant[]; setView
                     <span style={{ fontSize: ".86rem", fontWeight: 600 }}>{PLAN_LABELS[p]}</span>
                     <span style={{ fontSize: ".82rem", color: "var(--text-secondary)" }}>{count} restaurantes · {pct}%</span>
                   </div>
-                  <div style={{ height: "8px", background: "rgba(255,255,255,.06)", borderRadius: "4px", overflow: "hidden" }}>
+                  <div style={{ height: "8px", background: "var(--bg-elevated)", borderRadius: "4px", overflow: "hidden" }}>
                     <div style={{ height: "100%", borderRadius: "4px", width: `${pct}%`, background: p === "premium" ? "var(--accent)" : p === "basic" ? "#3b82f6" : "#64748b", transition: "width .4s ease" }} />
                   </div>
                 </div>
@@ -333,7 +333,7 @@ function Restaurants({
     setNewName(""); setNewEmail(""); setNewPlan("trial"); setShowNewForm(false);
   };
 
-  const fieldStyle = { width: "100%", background: "#141833", border: "1px solid rgba(255,255,255,.12)", borderRadius: "8px", padding: "9px 12px", color: "#eef2f7", fontSize: ".86rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box" as const, marginBottom: "12px" };
+  const fieldStyle = { width: "100%", background: "var(--bg-input)", border: "1px solid var(--border-light)", borderRadius: "8px", padding: "9px 12px", color: "var(--text-primary)", fontSize: ".86rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box" as const, marginBottom: "12px" };
 
   return (
     <div>
@@ -399,7 +399,7 @@ function Restaurants({
             ].map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)", fontSize: ".86rem" }}>
                 <span style={{ color: "var(--text-secondary)" }}>{k}</span>
-                <span style={{ fontWeight: 600, color: "#eef2f7" }}>{v}</span>
+                <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{v}</span>
               </div>
             ))}
             <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
@@ -725,12 +725,12 @@ function Billing({
 
       {changePlan && (
         <Modal title={`Cambiar plan — ${changePlan.name}`} onClose={() => setChangePlan(null)}>
-          <p style={{ fontSize: ".86rem", color: "var(--text-secondary)", marginBottom: "16px" }}>Plan actual: <strong style={{ color: "#fff" }}>{PLAN_LABELS[changePlan.plan]}</strong></p>
+          <p style={{ fontSize: ".86rem", color: "var(--text-secondary)", marginBottom: "16px" }}>Plan actual: <strong style={{ color: "var(--text-primary)" }}>{PLAN_LABELS[changePlan.plan]}</strong></p>
           {(["trial", "basic", "premium"] as Plan[]).map((p) => (
             <div key={p} onClick={() => setSelectedPlan(p)} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px", marginBottom: "8px", borderRadius: "10px", border: `1px solid ${selectedPlan === p ? "var(--accent)" : "var(--border)"}`, background: selectedPlan === p ? "var(--accent-dim)" : "var(--bg-elevated)", cursor: "pointer", transition: "all .15s" }}>
               <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${selectedPlan === p ? "var(--accent)" : "var(--border)"}`, background: selectedPlan === p ? "var(--accent)" : "transparent", flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, color: "#fff" }}>{PLAN_LABELS[p]}</div>
+                <div style={{ fontWeight: 700, color: "var(--text-primary)" }}>{PLAN_LABELS[p]}</div>
                 <div style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>{PLAN_PRICE[p] === 0 ? "Gratis 30 días" : `$${PLAN_PRICE[p].toLocaleString()}/mes`} · máx {p === "premium" ? 20 : p === "basic" ? 5 : 3} usuarios</div>
               </div>
               {selectedPlan === p && <span style={{ color: "var(--accent)", fontWeight: 700 }}>✓</span>}
@@ -866,8 +866,8 @@ function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAu
   };
 
   const inpStyle = (extra?: React.CSSProperties): React.CSSProperties => ({
-    background: "#141833", border: "1px solid rgba(255,255,255,.12)", borderRadius: "8px",
-    padding: "8px 12px", color: "#eef2f7", fontSize: ".86rem", outline: "none",
+    background: "var(--bg-input)", border: "1px solid var(--border-light)", borderRadius: "8px",
+    padding: "8px 12px", color: "var(--text-primary)", fontSize: ".86rem", outline: "none",
     fontFamily: "inherit", width: "100%", boxSizing: "border-box", ...extra,
   });
 
@@ -947,7 +947,7 @@ function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAu
       {/* Assign confirmation modal */}
       {assign && (
         <Modal title="Confirmar cambio de plan" onClose={() => setAssign(null)}>
-          <p style={{ fontSize: ".9rem", color: "#eef2f7", marginBottom: "20px", lineHeight: 1.6 }}>
+          <p style={{ fontSize: ".9rem", color: "var(--text-primary)", marginBottom: "20px", lineHeight: 1.6 }}>
             ¿Cambiar <strong style={{ color: "var(--accent)" }}>{assign.r.name}</strong> al plan{" "}
             <strong style={{ color: "var(--accent)" }}>{planConfigs.find((p) => p.id === assign.plan)?.name}</strong>?
             {assign.plan !== "trial" && (
@@ -1024,7 +1024,7 @@ function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAu
             <div style={{ padding: "12px", background: "var(--bg-elevated)", borderRadius: "10px", border: `1px solid ${draft.color}40` }}>
               <div style={{ fontSize: ".72rem", color: "var(--text-secondary)", marginBottom: "6px", textTransform: "uppercase", letterSpacing: ".06em" }}>Vista previa</div>
               <div style={{ fontWeight: 800, color: draft.color }}>{draft.name}</div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#fff", marginTop: "2px" }}>
+              <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", marginTop: "2px" }}>
                 {draft.price === 0 ? `Gratis · ${draft.trialDays} días` : `$${draft.price.toLocaleString()}/mes`}
                 <span style={{ fontSize: ".8rem", fontWeight: 400, color: "var(--text-secondary)", marginLeft: "8px" }}>· {draft.maxUsers} usuarios máx</span>
               </div>
@@ -1084,7 +1084,7 @@ function Discounts({ addAudit, showToast }: {
     navigator.clipboard.writeText(code).then(() => showToast(`Código "${code}" copiado`, "info"));
   };
 
-  const inpStyle: React.CSSProperties = { background: "#141833", border: "1px solid rgba(255,255,255,.12)", borderRadius: "8px", padding: "8px 12px", color: "#eef2f7", fontSize: ".86rem", outline: "none", fontFamily: "inherit", width: "100%", boxSizing: "border-box" };
+  const inpStyle: React.CSSProperties = { background: "var(--bg-input)", border: "1px solid var(--border-light)", borderRadius: "8px", padding: "8px 12px", color: "var(--text-primary)", fontSize: ".86rem", outline: "none", fontFamily: "inherit", width: "100%", boxSizing: "border-box" };
 
   return (
     <div>
@@ -1120,7 +1120,7 @@ function Discounts({ addAudit, showToast }: {
               <tr key={c.id}>
                 <td>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#eef2f7", fontSize: ".9rem" }}>{c.code}</span>
+                    <span style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--text-primary)", fontSize: ".9rem" }}>{c.code}</span>
                     <button onClick={() => copy(c.code)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: ".8rem" }}>📋</button>
                   </div>
                 </td>
@@ -1128,7 +1128,7 @@ function Discounts({ addAudit, showToast }: {
                 <td>
                   <span style={{ fontWeight: 600 }}>{c.uses}</span>
                   <span style={{ color: "var(--text-muted)" }}>/{c.maxUses}</span>
-                  <div style={{ marginTop: "4px", height: "4px", background: "rgba(255,255,255,.06)", borderRadius: "2px", width: "60px", overflow: "hidden" }}>
+                  <div style={{ marginTop: "4px", height: "4px", background: "var(--bg-elevated)", borderRadius: "2px", width: "60px", overflow: "hidden" }}>
                     <div style={{ height: "100%", background: "var(--accent)", borderRadius: "2px", width: `${Math.min(100, (c.uses / c.maxUses) * 100)}%` }} />
                   </div>
                 </td>
@@ -1269,7 +1269,7 @@ function Activity({ restaurants }: { restaurants: Restaurant[] }) {
                   </td>
                   <td>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <div style={{ width: "80px", height: "6px", background: "rgba(255,255,255,.06)", borderRadius: "3px", overflow: "hidden" }}>
+                      <div style={{ width: "80px", height: "6px", background: "var(--bg-elevated)", borderRadius: "3px", overflow: "hidden" }}>
                         <div style={{ height: "100%", background: h.color, borderRadius: "3px", width: `${h.score}%`, transition: "width .4s" }} />
                       </div>
                       <span style={{ fontSize: ".78rem", color: h.color, fontWeight: 600 }}>{h.label}</span>
@@ -1633,10 +1633,10 @@ function Permisos({ restaurants, addAudit, showToast }: {
       <div style={{ marginTop: "16px", padding: "16px", background: "rgba(59,130,246,.08)", border: "1px solid rgba(59,130,246,.2)", borderRadius: "12px" }}>
         <div style={{ fontWeight: 700, color: "#60a5fa", marginBottom: "8px" }}>ℹ️ Cómo funciona la jerarquía de permisos</div>
         <div style={{ fontSize: ".84rem", color: "var(--text-secondary)", lineHeight: 1.7 }}>
-          <div>• El <strong style={{ color: "#eef2f7" }}>Super Admin</strong> (tú) controla qué módulos existen en la plataforma.</div>
-          <div>• El <strong style={{ color: "#eef2f7" }}>Admin del restaurante</strong> solo puede activar lo que el Super Admin dejó habilitado.</div>
-          <div>• Los módulos con 🔒 requieren que <strong style={{ color: "#eef2f7" }}>el Super Admin los apruebe</strong> antes de que el admin pueda usarlos.</div>
-          <div>• El <strong style={{ color: "#eef2f7" }}>Empleado y Usuario</strong> solo ven lo que ambos niveles superiores autorizaron.</div>
+          <div>• El <strong style={{ color: "var(--text-primary)" }}>Super Admin</strong> (tú) controla qué módulos existen en la plataforma.</div>
+          <div>• El <strong style={{ color: "var(--text-primary)" }}>Admin del restaurante</strong> solo puede activar lo que el Super Admin dejó habilitado.</div>
+          <div>• Los módulos con 🔒 requieren que <strong style={{ color: "var(--text-primary)" }}>el Super Admin los apruebe</strong> antes de que el admin pueda usarlos.</div>
+          <div>• El <strong style={{ color: "var(--text-primary)" }}>Empleado y Usuario</strong> solo ven lo que ambos niveles superiores autorizaron.</div>
         </div>
       </div>
     </div>
@@ -1703,7 +1703,7 @@ function Solicitudes({ requests, setRequests, addAudit, showToast }: {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-                    <span style={{ fontWeight: 700, fontSize: ".95rem", color: "#eef2f7" }}>{r.restaurantName}</span>
+                    <span style={{ fontWeight: 700, fontSize: ".95rem", color: "var(--text-primary)" }}>{r.restaurantName}</span>
                     <Badge type={tab === "pending" ? "warning" : tab === "approved" ? "active" : "danger"}>
                       {tab === "pending" ? "Pendiente" : tab === "approved" ? "Aprobada" : "Rechazada"}
                     </Badge>
@@ -1742,14 +1742,14 @@ function Solicitudes({ requests, setRequests, addAudit, showToast }: {
       {rejectModal && (
         <Modal title={`Rechazar: ${rejectModal.feature}`} onClose={() => setRejectModal(null)}>
           <p style={{ fontSize: ".86rem", color: "var(--text-secondary)", marginBottom: "14px" }}>
-            Escribe el motivo del rechazo. Se le enviará al admin de <strong style={{ color: "#fff" }}>{rejectModal.restaurantName}</strong>.
+            Escribe el motivo del rechazo. Se le enviará al admin de <strong style={{ color: "var(--text-primary)" }}>{rejectModal.restaurantName}</strong>.
           </p>
           <textarea
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             placeholder="Ej. Esta función no está incluida en su plan actual..."
             rows={3}
-            style={{ width: "100%", background: "#141833", border: "1px solid rgba(255,255,255,.12)", borderRadius: "8px", padding: "10px 12px", color: "#eef2f7", fontSize: ".86rem", outline: "none", fontFamily: "inherit", resize: "vertical", boxSizing: "border-box", marginBottom: "14px" }}
+            style={{ width: "100%", background: "var(--bg-input)", border: "1px solid var(--border-light)", borderRadius: "8px", padding: "10px 12px", color: "var(--text-primary)", fontSize: ".86rem", outline: "none", fontFamily: "inherit", resize: "vertical", boxSizing: "border-box", marginBottom: "14px" }}
           />
           <div style={{ display: "flex", gap: "8px" }}>
             <button className="sa-btn danger" style={{ flex: 1 }} onClick={reject} disabled={!rejectReason.trim()}>
@@ -1801,7 +1801,7 @@ function Seguridad({ restaurants, showToast, addAudit }: {
     showToast(`Seguridad de ${restaurant?.name} guardada`);
   };
 
-  const inpStyle: React.CSSProperties = { background: "#141833", border: "1px solid rgba(255,255,255,.12)", borderRadius: "8px", padding: "8px 12px", color: "#eef2f7", fontSize: ".86rem", outline: "none", fontFamily: "inherit", width: "100%", boxSizing: "border-box" };
+  const inpStyle: React.CSSProperties = { background: "var(--bg-input)", border: "1px solid var(--border-light)", borderRadius: "8px", padding: "8px 12px", color: "var(--text-primary)", fontSize: ".86rem", outline: "none", fontFamily: "inherit", width: "100%", boxSizing: "border-box" };
 
   const rowStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 0", borderBottom: "1px solid var(--border)" };
 
@@ -1993,7 +1993,7 @@ function VentasReales() {
                 ].map(({ label, value }) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: '.88rem' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
-                    <span style={{ fontWeight: 700, color: value > 0 ? '#eef2f7' : 'var(--text-muted)' }}>{fmt(value)}</span>
+                    <span style={{ fontWeight: 700, color: value > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>{fmt(value)}</span>
                   </div>
                 ))}
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 0', fontWeight: 800, fontSize: '1rem' }}>
@@ -2013,7 +2013,7 @@ function VentasReales() {
                 ].map(({ label, value }) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: '.88rem' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
-                    <span style={{ fontWeight: 700, color: value > 0 ? '#eef2f7' : 'var(--text-muted)' }}>{fmt(value)}</span>
+                    <span style={{ fontWeight: 700, color: value > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>{fmt(value)}</span>
                   </div>
                 ))}
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 0', fontWeight: 800, fontSize: '1rem' }}>
@@ -2065,7 +2065,8 @@ function VentasReales() {
 
 type IconName = "bar-chart" | "trending-up" | "store" | "flag" | "lock" | "inbox" | "shield"
   | "credit-card" | "dollar" | "gem" | "tag" | "search" | "wrench" | "bell"
-  | "alert-triangle" | "users" | "calendar" | "check-circle" | "circle" | "target";
+  | "alert-triangle" | "users" | "calendar" | "check-circle" | "circle" | "target"
+  | "sun" | "moon";
 
 function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -2090,6 +2091,8 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
     case "check-circle":    return <svg {...p}><circle cx="12" cy="12" r="8.5" /><polyline points="8.5 12.3 11 14.8 15.5 9.5" /></svg>;
     case "circle":          return <svg {...p}><circle cx="12" cy="12" r="7" fill="currentColor" stroke="none" /></svg>;
     case "target":          return <svg {...p}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none" /></svg>;
+    case "sun":             return <svg {...p}><circle cx="12" cy="12" r="4" /><line x1="12" y1="2" x2="12" y2="4.5" /><line x1="12" y1="19.5" x2="12" y2="22" /><line x1="4.2" y1="4.2" x2="5.9" y2="5.9" /><line x1="18.1" y1="18.1" x2="19.8" y2="19.8" /><line x1="2" y1="12" x2="4.5" y2="12" /><line x1="19.5" y1="12" x2="22" y2="12" /><line x1="4.2" y1="19.8" x2="5.9" y2="18.1" /><line x1="18.1" y1="5.9" x2="19.8" y2="4.2" /></svg>;
+    case "moon":            return <svg {...p}><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" /></svg>;
   }
 }
 
@@ -2116,7 +2119,7 @@ const NAV: { view: View; icon: IconName; label: string; section?: string }[] = [
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
-function Dashboard({ onLogout }: { onLogout: () => void }) {
+function Dashboard({ onLogout, theme, toggleTheme }: { onLogout: () => void; theme: "dark" | "light"; toggleTheme: () => void }) {
   const [view, setView]       = useState<View>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
@@ -2246,6 +2249,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <div className="sa-topbar-sub">NICHO Platform · Super Admin</div>
           </div>
           <div className="sa-topbar-right">
+            <button className="sa-topbar-btn" onClick={toggleTheme} title={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}>
+              <Icon name={theme === "dark" ? "sun" : "moon"} />
+            </button>
             <button className="sa-topbar-btn" onClick={() => setView("billing")}>
               <Icon name="credit-card" /> {debtRestaurants.length > 0 && <span className="sa-notif-badge">{debtRestaurants.length}</span>}
             </button>
@@ -2263,14 +2269,31 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function SuperAdmin() {
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  // Carga la preferencia guardada (o el esquema del sistema) al montar.
+  useEffect(() => {
+    const saved = localStorage.getItem("sa_theme");
+    if (saved === "dark" || saved === "light") setTheme(saved);
+    else if (window.matchMedia("(prefers-color-scheme: light)").matches) setTheme("light");
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => {
+      const next = t === "dark" ? "light" : "dark";
+      localStorage.setItem("sa_theme", next);
+      return next;
+    });
+  }, []);
+
   // Borra la cookie de sesión en el servidor (DELETE /api/superadmin/auth) y redirige al login.
   async function handleLogout() {
     await fetch('/api/superadmin/auth', { method: 'DELETE' })
     window.location.href = '/sa-login'
   }
   return (
-    <div className="sa-root">
-      <Dashboard onLogout={handleLogout} />
+    <div className="sa-root" data-theme={theme}>
+      <Dashboard onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />
     </div>
   );
 }

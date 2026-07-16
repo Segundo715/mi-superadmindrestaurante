@@ -21,12 +21,28 @@
   --text-muted: #4a5568;
   --border: rgba(255,255,255,.07);
   --border-light: rgba(255,255,255,.12);
+  --hover-bg: rgba(255,255,255,.04);
   --sidebar-w: 240px;
   --topbar-h: 72px;
   --radius: 16px;
   --radius-sm: 12px;
   --radius-xs: 8px;
   --transition: .2s ease;
+}
+
+.sa-root[data-theme="light"] {
+  --bg-body: #f4f5f9;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f7f8fc;
+  --bg-input: #f0f1f7;
+  --bg-elevated: #eceef5;
+  --text-primary: #14161f;
+  --text-secondary: #5b6472;
+  --text-muted: #8891a0;
+  --border: rgba(15,18,30,.08);
+  --border-light: rgba(15,18,30,.14);
+  --hover-bg: rgba(15,18,30,.035);
 }
 
 .sa-root {
@@ -69,7 +85,7 @@
   font-size: 22px; margin-bottom: 20px;
   box-shadow: 0 0 24px var(--accent-glow);
 }
-.sa-login-title { font-size: 1.5rem; font-weight: 800; color: #fff; margin-bottom: 4px; }
+.sa-login-title { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
 .sa-login-sub { font-size: .86rem; color: var(--text-secondary); margin-bottom: 28px; }
 .sa-label { display: block; font-size: .78rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; letter-spacing: .04em; text-transform: uppercase; }
 .sa-input {
@@ -148,7 +164,7 @@
   font-size: 18px; flex-shrink: 0;
   box-shadow: 0 0 18px var(--accent-glow);
 }
-.sa-brand-name { color: #fff; font-weight: 800; font-size: 1.05rem; }
+.sa-brand-name { color: var(--text-primary); font-weight: 800; font-size: 1.05rem; }
 .sa-brand-sub { color: var(--text-secondary); font-size: .65rem; text-transform: uppercase; letter-spacing: .1em; font-weight: 600; }
 .sa-badge-super {
   display: inline-block;
@@ -168,7 +184,7 @@
   transition: all var(--transition);
   border: none; background: none; width: 100%; text-align: left; font-family: inherit;
 }
-.sa-nav-item:hover { background: rgba(255,255,255,.04); color: var(--text-primary); }
+.sa-nav-item:hover { background: var(--hover-bg); color: var(--text-primary); }
 .sa-nav-item.active { background: var(--accent); color: #000; font-weight: 700; box-shadow: 0 4px 16px var(--accent-glow); }
 .sa-nav-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .sa-nav-badge {
@@ -187,7 +203,7 @@
   padding: 8px 10px; border-radius: var(--radius-xs); cursor: pointer;
   transition: background var(--transition);
 }
-.sa-user-row:hover { background: rgba(255,255,255,.04); }
+.sa-user-row:hover { background: var(--hover-bg); }
 .sa-avatar {
   width: 36px; height: 36px; border-radius: 50%;
   background: linear-gradient(135deg, #7c3aed, #4f6ef7);
@@ -209,7 +225,7 @@
   padding: 0 28px; border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-.sa-topbar-title { font-size: 1.4rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; }
+.sa-topbar-title { font-size: 1.4rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
 .sa-topbar-sub { font-size: .82rem; color: var(--text-secondary); margin-top: 1px; }
 .sa-topbar-right { display: flex; align-items: center; gap: 10px; }
 .sa-topbar-btn {
@@ -240,7 +256,7 @@
 .sa-kpi-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
 .sa-kpi-label { font-size: .78rem; color: var(--text-secondary); font-weight: 500; }
 .sa-kpi-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1rem; }
-.sa-kpi-value { font-size: 1.75rem; font-weight: 800; letter-spacing: -.03em; line-height: 1; margin-bottom: 8px; color: #fff; }
+.sa-kpi-value { font-size: 1.75rem; font-weight: 800; letter-spacing: -.03em; line-height: 1; margin-bottom: 8px; color: var(--text-primary); }
 .sa-kpi-delta { font-size: .78rem; font-weight: 600; color: var(--accent); }
 .sa-kpi-delta.down { color: var(--danger); }
 
@@ -267,7 +283,7 @@
 }
 .sa-table td { padding: 14px 16px; font-size: .86rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .sa-table tr:last-child td { border-bottom: none; }
-.sa-table tr:hover td { background: rgba(255,255,255,.02); }
+.sa-table tr:hover td { background: var(--hover-bg); }
 
 /* ─── BADGES ─── */
 .sa-badge {
@@ -291,7 +307,7 @@
 .sa-toggle input { opacity: 0; width: 0; height: 0; }
 .sa-toggle-track {
   position: absolute; inset: 0; border-radius: 11px;
-  background: rgba(255,255,255,.1); cursor: pointer; transition: background .2s;
+  background: var(--bg-elevated); cursor: pointer; transition: background .2s;
 }
 .sa-toggle input:checked + .sa-toggle-track { background: var(--accent); }
 .sa-toggle-track::after {
@@ -307,7 +323,7 @@
 
 /* ─── SECTION HEADER ─── */
 .sa-section-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
-.sa-section-title { font-size: 1.5rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px; }
+.sa-section-title { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
 .sa-section-sub { font-size: .86rem; color: var(--text-secondary); margin-top: 3px; }
 
 /* ─── TABS ─── */
@@ -332,7 +348,7 @@
 }
 .sa-plan-card:hover { border-color: var(--border-light); }
 .sa-plan-card.featured { border-color: var(--accent); box-shadow: 0 0 30px rgba(0,230,118,.12); }
-.sa-plan-price { font-size: 2rem; font-weight: 800; color: #fff; letter-spacing: -.04em; }
+.sa-plan-price { font-size: 2rem; font-weight: 800; color: var(--text-primary); letter-spacing: -.04em; }
 .sa-plan-price span { font-size: 1rem; font-weight: 500; color: var(--text-secondary); }
 .sa-plan-feature { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: .84rem; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
 .sa-plan-feature:last-child { border-bottom: none; }
