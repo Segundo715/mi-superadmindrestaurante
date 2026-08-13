@@ -85,6 +85,13 @@ const FEATURES_RESTA3: FeatureFlag[] = [
 
 const FEATURES = [...FEATURES_R1, ...FEATURES_RESTA3];
 
+// Features de mi-card — solo tiene 3 módulos, no comparte el catálogo de Nicho/Resta3.
+const FEATURES_MICARD: FeatureFlag[] = [
+  { id: "sellar",        name: "Sellar",        description: "Escanear/buscar cliente y sellar visita",  category: "mi-card", defaultEnabled: true },
+  { id: "tarjetas",      name: "Tarjetas",      description: "Editor de categorías de tarjeta de lealtad", category: "mi-card", defaultEnabled: true },
+  { id: "configuracion", name: "Configuración", description: "Identidad del restaurante y perfiles",      category: "mi-card", defaultEnabled: true },
+];
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 // Módulos del empleado (lo que se ve en el sidebar EMPLEADO)
@@ -463,6 +470,8 @@ function FeatureFlags({
   // Restaurantes conectados a apps reales en Supabase (misma BD compartida).
   const CONNECTED_RESTAURANT = "r1";       // mi-proyecto → feature_flags + feature_flags_resta3
   const CONNECTED_PORTALES   = "portales"; // mi-restauranteportales → feature_flags_portales (R1 + Resta3 juntos)
+  const CONNECTED_MIMENU     = "mimenu";   // mi-menu → proyecto Supabase propio, feature_flags_mimenu
+  const CONNECTED_MICARD     = "micard";   // mi-card → misma BD que Global, feature_flags_micard
 
   useEffect(() => {
     fetch("/api/save-flags?key=feature_flags")
@@ -499,11 +508,35 @@ function FeatureFlags({
           return next;
         });
       }).catch(() => {});
+    fetch("/api/save-flags?key=feature_flags_mimenu")
+      .then(r => r.json())
+      .then((saved: Record<string, boolean>) => {
+        setFlags(prev => {
+          const next = { ...prev };
+          FEATURES_R1.forEach(f => {
+            next[`${CONNECTED_MIMENU}_${f.id}`] = saved[f.id] ?? f.defaultEnabled;
+          });
+          return next;
+        });
+      }).catch(() => {});
+    fetch("/api/save-flags?key=feature_flags_micard")
+      .then(r => r.json())
+      .then((saved: Record<string, boolean>) => {
+        setFlags(prev => {
+          const next = { ...prev };
+          FEATURES_MICARD.forEach(f => {
+            next[`${CONNECTED_MICARD}_${f.id}`] = saved[f.id] ?? f.defaultEnabled;
+          });
+          return next;
+        });
+      }).catch(() => {});
   }, []);
 
   const k = (fid: string) => `${sel}_${fid}`;
   const selName = sel === "all" ? "Global"
                 : sel === CONNECTED_PORTALES ? "Portales"
+                : sel === CONNECTED_MIMENU ? "mi-menu"
+                : sel === CONNECTED_MICARD ? "mi-card"
                 : restaurants.find((r) => r.id === sel)?.name ?? sel;
 
   const toggle = (fid: string, fname: string) => {
@@ -511,9 +544,11 @@ function FeatureFlags({
     const newFlags = { ...flags, [k(fid)]: next };
 
     const isPortales = sel === CONNECTED_PORTALES;
-    const isResta3   = fid.startsWith("r3_");
+    const isMiMenu   = sel === CONNECTED_MIMENU;
+    const isMiCard   = sel === CONNECTED_MICARD;
+    const isResta3   = fid.startsWith("r3_") && !isMiMenu && !isMiCard;
 
-    if (!isPortales) {
+    if (!isPortales && !isMiMenu && !isMiCard) {
       if (sel === CONNECTED_RESTAURANT) newFlags[`all_${fid}`] = next;
       if (sel === "all") newFlags[`${CONNECTED_RESTAURANT}_${fid}`] = next;
     }
@@ -521,13 +556,19 @@ function FeatureFlags({
 
     // Portales guarda R1 + Resta3 juntos en feature_flags_portales.
     // Global guarda R1 en feature_flags y Resta3 en feature_flags_resta3.
+    // mi-menu tiene su propio proyecto Supabase — feature_flags_mimenu.
+    // mi-card comparte la BD de Global pero con su propio catálogo (3 módulos) — feature_flags_micard.
     const settingsKey = isPortales ? "feature_flags_portales"
+                      : isMiMenu  ? "feature_flags_mimenu"
+                      : isMiCard  ? "feature_flags_micard"
                       : isResta3  ? "feature_flags_resta3"
                       :              "feature_flags";
     const featureList = isPortales ? FEATURES
+                      : isMiMenu  ? FEATURES_R1
+                      : isMiCard  ? FEATURES_MICARD
                       : isResta3  ? FEATURES_RESTA3
                       :              FEATURES_R1;
-    const scopePrefix = isPortales ? CONNECTED_PORTALES : "all";
+    const scopePrefix = isPortales ? CONNECTED_PORTALES : isMiMenu ? CONNECTED_MIMENU : isMiCard ? CONNECTED_MICARD : "all";
     const savedFlags: Record<string, boolean> = {};
     featureList.forEach((f) => { savedFlags[f.id] = newFlags[`${scopePrefix}_${f.id}`] ?? true; });
 
@@ -555,8 +596,8 @@ function FeatureFlags({
     });
   };
 
-  // Portales y Global muestran todas las features (R1 + Resta3)
-  const visibleFeatures = FEATURES;
+  // Portales y Global muestran todas las features (R1 + Resta3); mi-card tiene su propio catálogo, mucho más chico.
+  const visibleFeatures = sel === CONNECTED_MICARD ? FEATURES_MICARD : FEATURES;
   const categories = [...new Set(visibleFeatures.map((f) => f.category))];
 
   return (
@@ -580,7 +621,7 @@ function FeatureFlags({
           <div style={{ marginBottom: "16px", padding: "10px 16px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "10px", display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={{ color: "#f87171", display: "flex" }}><Icon name="alert-triangle" size={16} /></span>
             <span style={{ color: "#f87171", fontWeight: 600, fontSize: ".88rem" }}>{off} de {total} módulos desactivados</span>
-            <span style={{ color: "#64748b", fontSize: ".8rem" }}>en {sel === "all" ? "Global" : restaurants.find(r => r.id === sel)?.name ?? sel}</span>
+            <span style={{ color: "#64748b", fontSize: ".8rem" }}>en {selName}</span>
           </div>
         ) : (
           <div style={{ marginBottom: "16px", padding: "10px 16px", background: "rgba(0,230,118,0.06)", border: "1px solid rgba(0,230,118,0.15)", borderRadius: "10px", display: "flex", alignItems: "center", gap: "10px" }}>
@@ -592,6 +633,8 @@ function FeatureFlags({
 
       <div style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
         <button className={`sa-chip${sel === "all" ? " active" : ""}`} onClick={() => setSel("all")}><Icon name="globe" size={13} /> Global</button>
+        <button className={`sa-chip${sel === CONNECTED_MIMENU ? " active" : ""}`} onClick={() => setSel(CONNECTED_MIMENU)}><Icon name="clipboard" size={13} /> mi-menu</button>
+        <button className={`sa-chip${sel === CONNECTED_MICARD ? " active" : ""}`} onClick={() => setSel(CONNECTED_MICARD)}><Icon name="credit-card" size={13} /> mi-card</button>
         {restaurants.map((r) => (
           <button key={r.id} className={`sa-chip${sel === r.id ? " active" : ""}`} onClick={() => setSel(r.id)}>{r.name}</button>
         ))}
