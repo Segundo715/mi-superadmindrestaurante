@@ -76,3 +76,11 @@ app/superadmin/components/SuperAdmin.tsx,app/superadmin/superadmin.css
 app/superadmin/components/SuperAdmin.tsx,app/superadmin/superadmin.css
 
 ---
+
+## 2026-08-12 — Wednesday
+
+### 06:35 PM — main
+**Add mi-menu and mi-card as dedicated Feature Flags connections**
+app/api/save-flags/route.ts,app/superadmin/components/SuperAdmin.tsx,lib/supabaseMiMenu.ts
+
+---
