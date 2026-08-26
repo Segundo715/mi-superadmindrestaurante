@@ -132,3 +132,11 @@ app/superadmin/components/SuperAdmin.tsx
 app/api/superadmin/restaurants/[id]/route.ts,app/superadmin/components/SuperAdmin.tsx
 
 ---
+
+## 2026-08-26 — Wednesday
+
+### 12:49 PM — main
+**feat: columna "Instancia" en Restaurantes para ver de un vistazo si ya se creó**
+app/superadmin/components/SuperAdmin.tsx
+
+---
