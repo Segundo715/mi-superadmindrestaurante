@@ -37,7 +37,26 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 export async function DELETE(_: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   if (!await verifySaSession()) return Response.json({ error: 'No autorizado' }, { status: 401 })
   const { id } = await ctx.params
+
+  // Snapshot completo de la fila ANTES de borrarla, en sa_audit_log.details (JSON). Sin esto,
+  // un DELETE por accidente es irrecuperable — ya pasó una vez (2026-08-26, "Los Portales" se
+  // borró sin querer y no había nada de dónde reconstruirlo salvo lo que quedaba en capturas de
+  // pantalla). No es un soft-delete real (la fila sí se borra de sa_restaurants), pero al menos
+  // deja los datos completos guardados en el log para recrearla a mano si hace falta.
+  const { data: before } = await supabase.from('sa_restaurants').select('*').eq('id', id).maybeSingle()
+
   const { error } = await supabase.from('sa_restaurants').delete().eq('id', id)
   if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  if (before) {
+    await supabase.from('sa_audit_log').insert({
+      user_name: 'superadmin',
+      restaurant: before.name ?? '—',
+      action: 'Restaurante eliminado',
+      details: JSON.stringify(before),
+      type: 'delete',
+    })
+  }
+
   return Response.json({ ok: true })
 }

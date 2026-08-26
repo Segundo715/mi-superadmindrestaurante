@@ -415,7 +415,8 @@ function Restaurants({
     setDeleting(false);
     if (!res || !res.ok) { showToast("No se pudo eliminar el restaurante — reintenta", "error"); return; }
     setRestaurants((prev) => prev.filter((x) => x.id !== r.id));
-    addAudit("Restaurante eliminado", r.name, "delete", r.name);
+    // No hace falta addAudit() aquí — el endpoint DELETE ya guarda un snapshot completo de la
+    // fila en sa_audit_log.details antes de borrar (para poder reconstruirla si fue sin querer).
     showToast(`${r.name} eliminado`);
     setDeleteTarget(null);
     setSelected(null);
