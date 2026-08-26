@@ -2,26 +2,7 @@
 import { NextRequest } from 'next/server'
 import { verifySaSession } from '@/lib/saAuth'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
-
-function toRestaurant(r: Record<string, unknown>) {
-  return {
-    id: r.id,
-    name: r.name,
-    plan: r.plan,
-    status: r.status,
-    users: r.users,
-    maxUsers: r.max_users,
-    registeredAt: r.registered_at,
-    balance: r.balance,
-    nextPayment: r.next_payment,
-    lastPayment: r.last_payment,
-    email: r.email,
-    notes: r.notes,
-    apiToken: r.api_token,
-    lastActive: r.last_active,
-    loginCount: r.login_count,
-  }
-}
+import { toRestaurant } from '@/lib/mapRestaurant'
 
 export async function GET() {
   if (!await verifySaSession()) return Response.json({ error: 'No autorizado' }, { status: 401 })
@@ -34,15 +15,22 @@ export async function POST(req: NextRequest) {
   if (!await verifySaSession()) return Response.json({ error: 'No autorizado' }, { status: 401 })
   const body = await req.json()
   const plan = body.plan ?? 'trial'
+
+  // maxUsers y product_id salen del plan elegido (sa_plans), no de un switch hardcodeado.
+  const { data: planRow } = await supabase.from('sa_plans').select('max_users, product_id').eq('id', plan).maybeSingle()
+  const maxUsers = planRow?.max_users ?? 3
+  const productId = planRow?.product_id ?? 'mi-proyecto'
+
   const { data, error } = await supabase.from('sa_restaurants').insert({
     name: body.name.trim(),
     plan,
+    product_id: productId,
     status: 'active',
     users: 1,
-    max_users: plan === 'premium' ? 20 : plan === 'basic' ? 5 : 3,
+    max_users: maxUsers,
     email: body.email.trim(),
     notes: '',
-    api_token: `nch_live_${Math.random().toString(36).slice(2, 14)}`,
+    api_token: `nch_live_${crypto.randomUUID()}`,
     last_active: 'Recién registrado',
     login_count: 0,
     balance: 0,

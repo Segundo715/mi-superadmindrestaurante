@@ -9,8 +9,11 @@ import { useState, useCallback, useEffect } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type View = "overview" | "restaurants" | "flags" | "permisos" | "solicitudes" | "seguridad" | "billing" | "audit" | "plans" | "maintenance" | "notifications" | "discounts" | "activity" | "ventas";
-type Plan = "trial" | "basic" | "premium";
+type View = "overview" | "restaurants" | "flags" | "permisos" | "solicitudes" | "seguridad" | "billing" | "audit" | "plans" | "maintenance" | "notifications" | "discounts" | "activity" | "ventas" | "flota" | "updates";
+// Plan ya no es un enum cerrado: desde 2026-08-21 hay 6 planes activos (producto × modalidad)
+// más los legacy trial/basic/premium. El id es un string libre que resuelve contra `planConfigs`.
+type Plan = string;
+type ProductId = "mi-card" | "mi-menu" | "mi-proyecto";
 type Status = "active" | "suspended" | "maintenance";
 type AuditType = "create" | "update" | "delete" | "access" | "billing";
 
@@ -20,19 +23,56 @@ interface Restaurant {
   balance: number; nextPayment: string; lastPayment: string;
   email: string; notes: string; apiToken: string;
   lastActive: string; loginCount: number;
+  // multi-producto / flota (2026-08-21) — opcionales: restaurantes creados antes de la migración
+  // pueden no tenerlos poblados todavía.
+  restaurantId?: string; productId?: ProductId; billingMode?: "mensual" | "unico";
+  subscriptionStatus?: string; updatesUntil?: string | null; supportUntil?: string | null;
+  repoOwner?: string; repoName?: string; repoBranch?: string; repoUrl?: string; deployUrl?: string;
+  vercelProjectId?: string; vercelTeamId?: string;
+  previousPlan?: string; planChangedAt?: string;
 }
 
 interface PlanConfig {
   id: Plan; name: string; price: number; trialDays: number;
   maxUsers: number; color: string;
   features: { text: string; included: boolean }[];
+  productId?: ProductId; billingMode?: "mensual" | "unico"; setupFee?: number;
+  incluyeActualizaciones?: boolean; mesesActualizaciones?: number;
+  incluyeSoporte?: boolean; mesesSoporte?: number;
+  active?: boolean; legacy?: boolean; sortOrder?: number;
 }
+
+// Catálogo de productos (tabla sa_products, GET /api/superadmin/products) — antes la UI tenía
+// ["mi-card","mi-menu","mi-proyecto"] repetido a mano en ~6 sitios (chips de filtro, selects,
+// agrupaciones); ahora esos sitios iteran sobre esta lista, así que un producto nuevo dado de alta
+// en la BD aparece en toda la UI sin tocar código.
+interface ProductConfig { id: ProductId; name: string; tagline: string; tier: number; color: string; active: boolean; sortOrder: number; }
 
 interface FeatureFlag { id: string; name: string; description: string; category: string; defaultEnabled: boolean; }
 
 interface AuditEntry {
   id: string; ts: string; user: string; restaurant: string;
   action: string; details: string; ip: string; type: AuditType;
+}
+
+type UpdateTipo = "fix" | "feature" | "security" | "config" | "rollback";
+type UpdateResultado = "pendiente" | "aplicado" | "deploy_ok" | "deploy_error" | "revertido";
+interface ClientUpdate {
+  id: string; restaurantPk: string; restaurantId: string | null; restaurantName: string;
+  productId: ProductId | null; commitHash: string | null; commitMessage: string | null;
+  baseCommitHash: string | null; versionLabel: string | null; descripcion: string | null;
+  tipo: UpdateTipo; resultado: UpdateResultado; deployId: string | null; deployUrl: string | null;
+  errorDetail: string | null; aplicadoPor: string; aplicadoAt: string; verificadoAt: string | null;
+}
+
+type FleetHealth = "ok" | "warn" | "error" | "unknown";
+interface FleetStatus {
+  restaurantPk: string; productId: ProductId | null; checkedAt: string | null;
+  httpStatus: number | null; httpOk: boolean | null; httpLatencyMs: number | null; httpError: string | null;
+  vercelState: string | null; vercelDeployId: string | null; vercelDeployAt: string | null; vercelDeploySha: string | null; vercelError: string | null;
+  repoHeadSha: string | null; repoHeadAt: string | null; baseHeadSha: string | null;
+  commitsBehind: number | null; commitsAhead: number | null; githubError: string | null;
+  health: FleetHealth; healthReason: string | null;
 }
 
 interface Toast { msg: string; type: "success" | "error" | "info"; }
@@ -135,9 +175,25 @@ interface SecurityConfig {
 }
 
 
-const PLAN_LABELS: Record<Plan, string>    = { trial: "Trial", basic: "Básico", premium: "Premium" };
-const PLAN_COLORS: Record<Plan, string>    = { trial: "info",  basic: "muted",  premium: "active"  };
-const PLAN_PRICE: Record<Plan, number>     = { trial: 0, basic: 799, premium: 2499 };
+// El catálogo real vive en `planConfigs` (tabla sa_plans, 6 planes + legacy) — estos helpers
+// resuelven contra ese array en vez de un enum cerrado, con fallback si el plan ya no existe
+// en el catálogo (restaurantes con un plan legacy/descontinuado no deben tronar la UI).
+const PRODUCT_BADGE: Record<ProductId, string> = { "mi-card": "warning", "mi-menu": "info", "mi-proyecto": "active" };
+function planLabel(id: Plan, configs: PlanConfig[]): string {
+  return configs.find((p) => p.id === id)?.name ?? id ?? "Sin plan";
+}
+function planColor(id: Plan, configs: PlanConfig[]): string {
+  const cfg = configs.find((p) => p.id === id);
+  if (!cfg) return "muted";
+  // Un plan gratuito ($0, ej. trial) se distingue con azul sin importar el producto — antes
+  // (cuando el color era por tier: trial/basic/premium) esto ya existía; al pasar a colorear
+  // por producto se perdía la señal visual de "esto no está pagando todavía".
+  if (cfg.price === 0) return "info";
+  return (cfg.productId && PRODUCT_BADGE[cfg.productId]) || "muted";
+}
+function planPrice(id: Plan, configs: PlanConfig[]): number {
+  return configs.find((p) => p.id === id)?.price ?? 0;
+}
 const STATUS_LABELS: Record<Status, string> = { active: "Activo", suspended: "Suspendido", maintenance: "Mantenimiento" };
 const STATUS_COLORS: Record<Status, string> = { active: "active", suspended: "danger",     maintenance: "warning"       };
 const AUDIT_ICONS: Record<AuditType, IconName> = { create: "plus", update: "edit", delete: "trash", access: "eye", billing: "credit-card" };
@@ -158,6 +214,16 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       <span className="sa-toggle-track" />
     </label>
   );
+}
+
+// Genera un CSV (con escape correcto de comillas/comas embebidas) y dispara la descarga mediante
+// un <a> temporal. Compartido por AuditLog, Flota y ClientUpdates — antes cada uno lo reimplementaba
+// a mano concatenando strings sin escapar, así que un "," o un `"` dentro de una descripción rompía el CSV.
+function exportCsv(filename: string, headers: string[], rows: (string | number)[][]) {
+  const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+  const csv = [headers.map(esc).join(","), ...rows.map((r) => r.map(esc).join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
 }
 
 // Notificación flotante en la esquina superior derecha. Desaparece tras 3 s (gestionado por showToast en Dashboard).
@@ -209,13 +275,13 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 
 // ─── Overview ─────────────────────────────────────────────────────────────────
 
-function Overview({ restaurants, setView }: { restaurants: Restaurant[]; setView: (v: View) => void }) {
+function Overview({ restaurants, setView, planConfigs, productConfigs }: { restaurants: Restaurant[]; setView: (v: View) => void; planConfigs: PlanConfig[]; productConfigs: ProductConfig[] }) {
   const active  = restaurants.filter((r) => r.status === "active").length;
   const withDebt = restaurants.filter((r) => r.balance > 0).length;
   const totalUsers = restaurants.reduce((s, r) => s + r.users, 0);
   // Ingresos reales: excluye trial (precio $0) y restaurantes suspendidos (no generan MRR).
   const revenue = restaurants.filter((r) => r.plan !== "trial" && r.status === "active")
-    .reduce((s, r) => s + PLAN_PRICE[r.plan], 0);
+    .reduce((s, r) => s + planPrice(r.plan, planConfigs), 0);
 
   return (
     <div>
@@ -259,7 +325,7 @@ function Overview({ restaurants, setView }: { restaurants: Restaurant[]; setView
                 <div style={{ width: 34, height: 34, borderRadius: "10px", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name="store" /></div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: ".88rem" }}>{r.name}</div>
-                  <div style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>{r.users}/{r.maxUsers} usuarios · {PLAN_LABELS[r.plan]}</div>
+                  <div style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>{r.users}/{r.maxUsers} usuarios · {planLabel(r.plan, planConfigs)}</div>
                 </div>
                 {r.balance > 0 && <span style={{ fontSize: ".75rem", color: "#ef4444", fontWeight: 700 }}>${r.balance.toLocaleString()}</span>}
                 <Badge type={STATUS_COLORS[r.status]}>{STATUS_LABELS[r.status]}</Badge>
@@ -269,19 +335,20 @@ function Overview({ restaurants, setView }: { restaurants: Restaurant[]; setView
         </div>
 
         <div className="sa-card">
-          <div className="sa-card-header"><span className="sa-card-title">Distribución de planes</span></div>
+          <div className="sa-card-header"><span className="sa-card-title">Distribución por producto</span></div>
           <div className="sa-card-body">
-            {(["premium", "basic", "trial"] as Plan[]).map((p) => {
-              const count = restaurants.filter((r) => r.plan === p).length;
-              const pct = Math.round((count / restaurants.length) * 100);
+            {[...productConfigs].sort((a, b) => b.tier - a.tier).map((prod) => {
+              // Legacy: restaurantes sin productId poblado se cuentan como mi-proyecto (backfill de la migración).
+              const count = restaurants.filter((r) => (r.productId ?? "mi-proyecto") === prod.id).length;
+              const pct = restaurants.length ? Math.round((count / restaurants.length) * 100) : 0;
               return (
-                <div key={p} style={{ marginBottom: "16px" }}>
+                <div key={prod.id} style={{ marginBottom: "16px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                    <span style={{ fontSize: ".86rem", fontWeight: 600 }}>{PLAN_LABELS[p]}</span>
+                    <span style={{ fontSize: ".86rem", fontWeight: 600 }}>{prod.id}</span>
                     <span style={{ fontSize: ".82rem", color: "var(--text-secondary)" }}>{count} restaurantes · {pct}%</span>
                   </div>
                   <div style={{ height: "8px", background: "var(--bg-elevated)", borderRadius: "4px", overflow: "hidden" }}>
-                    <div style={{ height: "100%", borderRadius: "4px", width: `${pct}%`, background: p === "premium" ? "var(--accent)" : p === "basic" ? "#3b82f6" : "#64748b", transition: "width .4s ease" }} />
+                    <div style={{ height: "100%", borderRadius: "4px", width: `${pct}%`, background: prod.color, transition: "width .4s ease" }} />
                   </div>
                 </div>
               );
@@ -300,24 +367,33 @@ function Overview({ restaurants, setView }: { restaurants: Restaurant[]; setView
 // ─── Restaurants ──────────────────────────────────────────────────────────────
 
 function Restaurants({
-  restaurants, setRestaurants, addAudit, showToast,
+  restaurants, setRestaurants, addAudit, showToast, planConfigs, productConfigs,
 }: {
   restaurants: Restaurant[];
   setRestaurants: React.Dispatch<React.SetStateAction<Restaurant[]>>;
   addAudit: (action: string, details: string, type: AuditType, restaurant?: string) => void;
   showToast: (msg: string, type?: Toast["type"]) => void;
+  planConfigs: PlanConfig[];
+  productConfigs: ProductConfig[];
 }) {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | Plan>("all");
+  // Se filtra por producto, no por plan individual — con 6+ planes activos, filtrar plan por
+  // plan deja de ser útil; producto (mi-card/mi-menu/mi-proyecto) es lo que importa a simple vista.
+  const [filter, setFilter] = useState<"all" | string>("all");
   const [selected, setSelected] = useState<Restaurant | null>(null);
+  const [upgradeFor, setUpgradeFor] = useState<Restaurant | null>(null);
+  const [provisionFor, setProvisionFor] = useState<Restaurant | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Restaurant | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const sellablePlans = planConfigs.filter((p) => p.active);
   const [newPlan, setNewPlan] = useState<Plan>("trial");
 
   const filtered = restaurants.filter((r) => {
     const s = r.name.toLowerCase().includes(search.toLowerCase());
-    return filter === "all" ? s : s && r.plan === filter;
+    return filter === "all" ? s : s && (r.productId ?? "mi-proyecto") === filter;
   });
 
   const toggleStatus = (r: Restaurant) => {
@@ -329,13 +405,28 @@ function Restaurants({
     setSelected(null);
   };
 
+  // Borra el registro por completo — irreversible, por eso pasa por un modal de confirmación
+  // aparte (deleteTarget) en vez de un solo clic. No borra la instancia real del cliente
+  // (repo/deploy) si la tenía aprovisionada, solo el registro en el superadmin.
+  const deleteRestaurant = async (r: Restaurant) => {
+    setDeleting(true);
+    const res = await fetch(`/api/superadmin/restaurants/${r.id}`, { method: 'DELETE' }).catch(() => null);
+    setDeleting(false);
+    if (!res || !res.ok) { showToast("No se pudo eliminar el restaurante — reintenta", "error"); return; }
+    setRestaurants((prev) => prev.filter((x) => x.id !== r.id));
+    addAudit("Restaurante eliminado", r.name, "delete", r.name);
+    showToast(`${r.name} eliminado`);
+    setDeleteTarget(null);
+    setSelected(null);
+  };
+
   const addRestaurant = async () => {
     if (!newName.trim() || !newEmail.trim()) { showToast("Completa nombre y correo", "error"); return; }
     const res = await fetch('/api/superadmin/restaurants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newName.trim(), email: newEmail.trim(), plan: newPlan }) })
     if (!res.ok) { showToast("Error al registrar restaurante", "error"); return; }
     const newR: Restaurant = await res.json()
     setRestaurants((prev) => [...prev, newR]);
-    addAudit("Restaurante registrado", `${newName} · Plan ${PLAN_LABELS[newPlan]}`, "create", newName);
+    addAudit("Restaurante registrado", `${newName} · Plan ${planLabel(newPlan, planConfigs)}`, "create", newName);
     showToast(`${newName} registrado exitosamente`);
     setNewName(""); setNewEmail(""); setNewPlan("trial"); setShowNewForm(false);
   };
@@ -354,9 +445,9 @@ function Restaurants({
           <span style={{ color: "var(--text-muted)", display: "flex" }}><Icon name="search" size={16} /></span>
           <input placeholder="Buscar restaurante…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        {(["all", "trial", "basic", "premium"] as const).map((f) => (
+        {["all", ...productConfigs.map((p) => p.id)].map((f) => (
           <button key={f} className={`sa-chip${filter === f ? " active" : ""}`} onClick={() => setFilter(f)}>
-            {f === "all" ? "Todos" : PLAN_LABELS[f]}
+            {f === "all" ? "Todos" : f}
           </button>
         ))}
       </div>
@@ -371,7 +462,7 @@ function Restaurants({
                   <div style={{ fontWeight: 600 }}>{r.name}</div>
                   <div style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>{r.email}</div>
                 </td>
-                <td><Badge type={PLAN_COLORS[r.plan]}>{PLAN_LABELS[r.plan]}</Badge></td>
+                <td><Badge type={planColor(r.plan, planConfigs)}>{planLabel(r.plan, planConfigs)}</Badge></td>
                 <td><Badge type={STATUS_COLORS[r.status]}>{STATUS_LABELS[r.status]}</Badge></td>
                 <td><span style={{ fontWeight: 600 }}>{r.users}</span><span style={{ color: "var(--text-muted)" }}>/{r.maxUsers}</span></td>
                 <td style={{ color: r.balance > 0 ? "#ef4444" : "var(--accent)", fontWeight: 700 }}>{r.balance > 0 ? `$${r.balance.toLocaleString()}` : "Al día"}</td>
@@ -398,27 +489,77 @@ function Restaurants({
         <Modal title={`${selected.name} — Detalle`} onClose={() => setSelected(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {[
-              ["Plan", PLAN_LABELS[selected.plan]], ["Estado", STATUS_LABELS[selected.status]],
+              ["Plan", planLabel(selected.plan, planConfigs)], ["Estado", STATUS_LABELS[selected.status]],
               ["Correo", selected.email], ["Usuarios", `${selected.users} / ${selected.maxUsers}`],
               ["Saldo pendiente", selected.balance > 0 ? `$${selected.balance.toLocaleString()}` : "Al corriente"],
               ["Próximo pago", selected.nextPayment], ["Último pago", selected.lastPayment],
               ["Registrado", selected.registeredAt],
+              ["Instancia", selected.repoName ? `${selected.repoOwner}/${selected.repoName}` : "Sin aprovisionar"],
             ].map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)", fontSize: ".86rem" }}>
                 <span style={{ color: "var(--text-secondary)" }}>{k}</span>
                 <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{v}</span>
               </div>
             ))}
-            <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+            <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
               {selected.status !== "maintenance" && (
                 <button className={`sa-btn${selected.status === "suspended" ? "" : " danger"}`} style={{ flex: 1 }} onClick={() => toggleStatus(selected)}>
                   <Icon name={selected.status === "suspended" ? "check-circle" : "ban"} size={16} /> {selected.status === "suspended" ? "Reactivar" : "Suspender"}
                 </button>
               )}
+              <button className="sa-btn" style={{ flex: 1 }} onClick={() => setUpgradeFor(selected)}><Icon name="shuffle" size={16} /> Cambiar plan/producto</button>
+              {!selected.repoName && (
+                <button className="sa-btn primary" style={{ flex: 1 }} onClick={() => setProvisionFor(selected)}><Icon name="package" size={16} /> Aprovisionar instancia</button>
+              )}
+              <button className="sa-btn danger" style={{ flex: 1 }} onClick={() => setDeleteTarget(selected)}><Icon name="trash" size={16} /> Eliminar</button>
               <button className="sa-btn" style={{ flex: 1 }} onClick={() => setSelected(null)}>Cerrar</button>
             </div>
           </div>
         </Modal>
+      )}
+
+      {deleteTarget && (
+        <Modal title="Eliminar restaurante" onClose={() => setDeleteTarget(null)}>
+          <p style={{ fontSize: ".9rem", color: "var(--text-primary)", marginBottom: "8px", lineHeight: 1.6 }}>
+            ¿Eliminar <strong style={{ color: "#ef4444" }}>{deleteTarget.name}</strong> del superadmin? Esta acción no se puede deshacer.
+          </p>
+          <p style={{ fontSize: ".8rem", color: "var(--text-secondary)", marginBottom: "20px" }}>
+            Se borra el registro de facturación, plan e historial de este panel. {deleteTarget.repoName
+              ? "Su instancia real (repo/deploy) NO se borra sola — hazlo a mano en GitHub/Vercel si ya no la necesitas."
+              : "No tenía instancia aprovisionada."}
+          </p>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button className="sa-btn danger" style={{ flex: 1 }} onClick={() => deleteRestaurant(deleteTarget)} disabled={deleting}>
+              {deleting ? "Eliminando…" : "Sí, eliminar"}
+            </button>
+            <button className="sa-btn" style={{ flex: 1 }} onClick={() => setDeleteTarget(null)}>Cancelar</button>
+          </div>
+        </Modal>
+      )}
+
+      {provisionFor && (
+        <ProvisionModal
+          restaurant={provisionFor}
+          showToast={showToast}
+          onClose={() => setProvisionFor(null)}
+          onDone={(patch) => {
+            setRestaurants((prev) => prev.map((x) => x.id === provisionFor.id ? { ...x, ...patch } : x));
+            setProvisionFor(null); setSelected(null);
+          }}
+        />
+      )}
+
+      {upgradeFor && (
+        <UpgradePlanModal
+          restaurant={upgradeFor}
+          planConfigs={planConfigs}
+          showToast={showToast}
+          onClose={() => setUpgradeFor(null)}
+          onDone={(patch) => {
+            setRestaurants((prev) => prev.map((x) => x.id === upgradeFor.id ? { ...x, ...patch } : x));
+            setUpgradeFor(null); setSelected(null);
+          }}
+        />
       )}
 
       {/* New restaurant modal */}
@@ -429,18 +570,248 @@ function Restaurants({
           <label style={{ display: "block", color: "var(--text-secondary)", fontSize: ".78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: "5px" }}>Correo del admin</label>
           <input style={fieldStyle} placeholder="admin@restaurante.com" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
           <label style={{ display: "block", color: "var(--text-secondary)", fontSize: ".78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: "5px" }}>Plan inicial</label>
-          <select style={{ ...fieldStyle, cursor: "pointer" }} value={newPlan} onChange={(e) => setNewPlan(e.target.value as Plan)}>
-            <option value="trial">Trial (30 días gratis)</option>
-            <option value="basic">Básico ($799/mes)</option>
-            <option value="premium">Premium ($2,499/mes)</option>
-          </select>
+          {sellablePlans.length === 0 ? (
+            <div style={{ padding: "10px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "8px", fontSize: ".8rem", color: "#f87171", marginBottom: "12px" }}>
+              No hay planes en el catálogo — falta correr la migración SQL (Documentacion/sql/migraciones/2026-08-21-multiproducto-y-flota.sql) en Supabase.
+            </div>
+          ) : (
+            <select style={{ ...fieldStyle, cursor: "pointer" }} value={newPlan} onChange={(e) => setNewPlan(e.target.value)}>
+              {productConfigs.map((prod) => {
+                const plansOfProduct = sellablePlans.filter((p) => p.productId === prod.id);
+                if (plansOfProduct.length === 0) return null;
+                return (
+                  <optgroup key={prod.id} label={prod.id}>
+                    {plansOfProduct.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} {p.price === 0 ? `(${p.trialDays} días gratis)` : p.billingMode === "unico" ? `($${p.price.toLocaleString()} único)` : `($${p.price.toLocaleString()}/mes)`}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+            </select>
+          )}
           <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
-            <button className="sa-btn primary" style={{ flex: 1 }} onClick={addRestaurant}><Icon name="check-circle" size={16} /> Registrar</button>
+            <button className="sa-btn primary" style={{ flex: 1 }} onClick={addRestaurant} disabled={sellablePlans.length === 0}><Icon name="check-circle" size={16} /> Registrar</button>
             <button className="sa-btn" style={{ flex: 1 }} onClick={() => setShowNewForm(false)}>Cancelar</button>
           </div>
         </Modal>
       )}
     </div>
+  );
+}
+
+// ─── Upgrade / downgrade de plan-producto ──────────────────────────────────────
+// Flujo dry-run primero, siempre: se pide la vista previa (no escribe nada), se muestran
+// advertencias y qué cambia, y solo entonces se habilita "Confirmar". Ver
+// app/api/superadmin/upgrade-plan/route.ts para qué SÍ y qué NO hace este endpoint todavía
+// (no copia datos entre productos ni activa feature flags automáticamente).
+
+type UpgradePreview = {
+  ok: boolean; error?: string; direction?: "upgrade" | "downgrade" | "billing_change";
+  from?: { planId: string; productId: string | null; tier: number | null };
+  to?: { planId: string; productId: string | null; tier: number | null };
+  changes?: { maxUsers: number; billingMode: string; updatesUntil: string | null; supportUntil: string | null; subscriptionStatus: string };
+  warnings?: string[];
+};
+
+function UpgradePlanModal({ restaurant, planConfigs, onClose, onDone, showToast }: {
+  restaurant: Restaurant;
+  planConfigs: PlanConfig[];
+  onClose: () => void;
+  onDone: (patch: Partial<Restaurant>) => void;
+  showToast: (msg: string, type?: Toast["type"]) => void;
+}) {
+  const [targetPlan, setTargetPlan] = useState("");
+  const [preview, setPreview] = useState<UpgradePreview | null>(null);
+  const [ack, setAck] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const runDryRun = async () => {
+    if (!targetPlan) return;
+    setLoading(true); setPreview(null); setAck(false);
+    const res = await fetch('/api/superadmin/upgrade-plan', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restaurantId: restaurant.id, targetPlanId: targetPlan, dryRun: true }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    setPreview(data);
+  };
+
+  const confirm = async () => {
+    if (!targetPlan || !preview) return;
+    if (preview.direction === "downgrade" && !ack) { showToast("Confirma que entiendes la pérdida de datos", "error"); return; }
+    setLoading(true);
+    const res = await fetch('/api/superadmin/upgrade-plan', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restaurantId: restaurant.id, targetPlanId: targetPlan, dryRun: false, acknowledgeDataLoss: ack }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok || !data.ok) { showToast(data.error ?? "No se pudo cambiar el plan", "error"); return; }
+    const cfg = planConfigs.find((p) => p.id === targetPlan);
+    onDone({
+      plan: targetPlan, productId: cfg?.productId, billingMode: cfg?.billingMode,
+      maxUsers: preview.changes?.maxUsers,
+      subscriptionStatus: preview.changes?.subscriptionStatus,
+      updatesUntil: preview.changes?.updatesUntil, supportUntil: preview.changes?.supportUntil,
+    });
+    showToast(data.warnings?.length ? `Plan cambiado — revisa: ${data.warnings[0]}` : "Plan actualizado correctamente");
+  };
+
+  return (
+    <Modal title={`Cambiar plan/producto — ${restaurant.name}`} onClose={onClose}>
+      <p style={{ fontSize: ".82rem", color: "var(--text-secondary)", marginBottom: "12px" }}>
+        Plan actual: <strong style={{ color: "var(--text-primary)" }}>{planLabel(restaurant.plan, planConfigs)}</strong>
+      </p>
+      <select
+        style={{ width: "100%", background: "var(--bg-input)", border: "1px solid var(--border-light)", borderRadius: "8px", padding: "9px 12px", color: "var(--text-primary)", fontSize: ".86rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box", marginBottom: "12px", cursor: "pointer" }}
+        value={targetPlan} onChange={(e) => { setTargetPlan(e.target.value); setPreview(null); }}
+      >
+        <option value="">Selecciona un plan destino…</option>
+        {planConfigs.filter((p) => p.active && p.id !== restaurant.plan).map((p) => (
+          <option key={p.id} value={p.id}>{p.name} · {p.productId}</option>
+        ))}
+      </select>
+
+      {!preview && (
+        <button className="sa-btn full" onClick={runDryRun} disabled={!targetPlan || loading}>{loading ? "Calculando…" : "Ver vista previa"}</button>
+      )}
+
+      {preview && !preview.ok && (
+        <div style={{ padding: "12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "10px", fontSize: ".84rem", color: "#f87171", marginBottom: "12px" }}>
+          {preview.error}
+        </div>
+      )}
+
+      {preview && preview.ok && (
+        <div style={{ marginBottom: "12px" }}>
+          <div style={{ fontSize: ".82rem", marginBottom: "10px" }}>
+            Tipo de cambio: <Badge type={preview.direction === "downgrade" ? "danger" : preview.direction === "upgrade" ? "active" : "info"}>{preview.direction}</Badge>
+          </div>
+          {preview.changes && (
+            <div style={{ fontSize: ".8rem", color: "var(--text-secondary)", marginBottom: "10px" }}>
+              Máx usuarios: {preview.changes.maxUsers} · Modalidad: {preview.changes.billingMode}
+              {preview.changes.updatesUntil && <> · Actualizaciones hasta {preview.changes.updatesUntil}</>}
+            </div>
+          )}
+          {preview.warnings && preview.warnings.length > 0 && (
+            <div style={{ padding: "10px 12px", background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px", marginBottom: "10px" }}>
+              {preview.warnings.map((w, i) => <div key={i} style={{ fontSize: ".78rem", color: "#eab308", marginBottom: i < preview.warnings!.length - 1 ? "6px" : 0 }}>⚠ {w}</div>)}
+            </div>
+          )}
+          {preview.direction === "downgrade" && (
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: ".82rem", color: "var(--text-secondary)", marginBottom: "10px", cursor: "pointer" }}>
+              <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
+              Entiendo que este cambio puede dejar datos fuera del nuevo plan
+            </label>
+          )}
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button className="sa-btn primary" style={{ flex: 1 }} onClick={confirm} disabled={loading || (preview.direction === "downgrade" && !ack)}>
+              {loading ? "Aplicando…" : "Confirmar cambio"}
+            </button>
+            <button className="sa-btn" style={{ flex: 1 }} onClick={() => setPreview(null)}>Revisar otro plan</button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ─── Aprovisionar instancia (repo + deploy del cliente) ────────────────────────
+// Mismo patrón dry-run → confirmar que UpgradePlanModal. Ver
+// app/api/superadmin/provision-client/route.ts para el detalle de qué crea y qué variables
+// de entorno confirmó (no adivinó) leyendo el código real de mi-proyecto/mi-card.
+
+type ProvisionPreview = {
+  ok: boolean; error?: string;
+  template?: string; newRepo?: string; restaurantId?: string;
+  envVarsToSet?: string[]; githubTokenConfigured?: boolean; vercelTokenConfigured?: boolean;
+  warnings?: string[];
+};
+
+function ProvisionModal({ restaurant, onClose, onDone, showToast }: {
+  restaurant: Restaurant;
+  onClose: () => void;
+  onDone: (patch: Partial<Restaurant>) => void;
+  showToast: (msg: string, type?: Toast["type"]) => void;
+}) {
+  const [preview, setPreview] = useState<ProvisionPreview | null>(null);
+  // Arranca en `true`: el efecto de abajo dispara el fetch de inmediato al montar, así que ya
+  // sabemos que va a estar cargando — evita tener que llamar setLoading(true) de forma síncrona
+  // dentro del efecto (lint react-hooks/set-state-in-effect).
+  const [loading, setLoading] = useState(true);
+
+  // Corre la vista previa automáticamente al abrir — no hay nada que elegir antes (a diferencia
+  // del cambio de plan), así que pedir un clic extra solo para ver el resultado sería fricción de más.
+  useEffect(() => {
+    fetch('/api/superadmin/provision-client', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restaurantId: restaurant.id, dryRun: true }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        setPreview(res.ok ? data : { ok: false, error: data.error ?? "No se pudo validar" });
+      })
+      .catch(() => setPreview({ ok: false, error: "No se pudo conectar con el servidor" }))
+      .finally(() => setLoading(false));
+  }, [restaurant.id]);
+
+  const confirm = async () => {
+    setLoading(true);
+    const res = await fetch('/api/superadmin/provision-client', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restaurantId: restaurant.id, dryRun: false }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok || !data.ok) { showToast(data.error ?? "No se pudo aprovisionar la instancia", "error"); return; }
+    onDone({ repoOwner: 'Segundo715', repoName: preview?.newRepo?.split('/')[1], repoUrl: data.repoUrl, deployUrl: data.deployUrl, restaurantId: data.restaurantId });
+    showToast(data.warnings?.length ? `Instancia creada — revisa: ${data.warnings[0]}` : "Instancia creada correctamente");
+  };
+
+  const tokensOk = preview?.githubTokenConfigured && preview?.vercelTokenConfigured;
+
+  return (
+    <Modal title={`Aprovisionar instancia — ${restaurant.name}`} onClose={onClose}>
+      {loading && !preview && <p style={{ fontSize: ".86rem", color: "var(--text-secondary)" }}>Calculando…</p>}
+
+      {preview && !preview.ok && (
+        <div style={{ padding: "12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "10px", fontSize: ".84rem", color: "#f87171" }}>
+          {preview.error}
+        </div>
+      )}
+
+      {preview && preview.ok && (
+        <div>
+          <div style={{ fontSize: ".84rem", marginBottom: "10px", color: "var(--text-secondary)" }}>
+            Se creará el repo <strong style={{ color: "var(--text-primary)" }}>{preview.newRepo}</strong> (plantilla: {preview.template})
+            {" "}y un proyecto de Vercel apuntando a él, con <code>NEXT_PUBLIC_RESTAURANT_ID = {preview.restaurantId}</code>.
+          </div>
+
+          {!tokensOk && (
+            <div style={{ padding: "10px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "10px", marginBottom: "10px", fontSize: ".8rem", color: "#f87171" }}>
+              {!preview.githubTokenConfigured && <div>⚠ Falta GITHUB_TOKEN (con permiso de escritura) — no se puede crear el repo todavía.</div>}
+              {!preview.vercelTokenConfigured && <div>⚠ Falta VERCEL_TOKEN (con permiso de crear proyectos) — no se puede crear el deploy todavía.</div>}
+            </div>
+          )}
+
+          {preview.warnings && preview.warnings.length > 0 && (
+            <div style={{ padding: "10px 12px", background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px", marginBottom: "10px" }}>
+              {preview.warnings.map((w, i) => <div key={i} style={{ fontSize: ".78rem", color: "#eab308", marginBottom: i < preview.warnings!.length - 1 ? "6px" : 0 }}>⚠ {w}</div>)}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button className="sa-btn primary" style={{ flex: 1 }} onClick={confirm} disabled={loading || !tokensOk}>
+              {loading ? "Creando…" : "Confirmar y crear"}
+            </button>
+            <button className="sa-btn" style={{ flex: 1 }} onClick={onClose}>Cancelar</button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -681,39 +1052,55 @@ function FeatureFlags({
 // ─── Billing ──────────────────────────────────────────────────────────────────
 
 function Billing({
-  restaurants, setRestaurants, addAudit, showToast,
+  restaurants, setRestaurants, addAudit, showToast, planConfigs,
 }: {
   restaurants: Restaurant[];
   setRestaurants: React.Dispatch<React.SetStateAction<Restaurant[]>>;
   addAudit: (action: string, details: string, type: AuditType, restaurant?: string) => void;
   showToast: (msg: string, type?: Toast["type"]) => void;
+  planConfigs: PlanConfig[];
 }) {
   const [changePlan, setChangePlan] = useState<Restaurant | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<Plan>("basic");
+  const [selectedPlan, setSelectedPlan] = useState<Plan>("trial");
 
   // Registra el pago: zeroes balance, actualiza lastPayment y auto-reactiva si estaba suspendido.
-  const registerPayment = (r: Restaurant) => {
+  // NOTA: solo actualiza estado local — este endpoint (PATCH balance/lastPayment/status) no
+  // requirió cambios para esta pasada, pero igual que applyPlanChange abajo, en producción real
+  // el pago debe registrarse contra un proveedor de cobro, no solo aquí.
+  const registerPayment = async (r: Restaurant) => {
     const paid = r.balance;
-    setRestaurants((prev) => prev.map((x) => x.id === r.id
-      ? { ...x, balance: 0, lastPayment: new Date().toISOString().split("T")[0], status: x.status === "suspended" ? "active" : x.status }
-      : x));
+    const patch = { balance: 0, lastPayment: new Date().toISOString().split("T")[0], status: r.status === "suspended" ? "active" : r.status };
+    // Persiste primero — si el PATCH falla (sesión vencida, error de BD), no queremos que el
+    // estado local ni la auditoría digan "pago registrado" cuando la BD sigue mostrando la deuda.
+    const res = await fetch(`/api/superadmin/restaurants/${r.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
+    }).catch(() => null);
+    if (!res || !res.ok) { showToast("No se pudo guardar el pago — reintenta", "error"); return; }
+    setRestaurants((prev) => prev.map((x) => x.id === r.id ? { ...x, ...patch } : x));
     addAudit("Pago registrado", `${r.name} — $${paid.toLocaleString()} liquidado`, "billing", r.name);
     showToast(`Pago de $${paid.toLocaleString()} registrado para ${r.name}`);
   };
 
   // Cambia el plan y ajusta maxUsers al límite del nuevo plan.
-  const applyPlanChange = () => {
+  const applyPlanChange = async () => {
     if (!changePlan) return;
-    const prev = changePlan.plan;
-    const maxUsers = selectedPlan === "premium" ? 20 : selectedPlan === "basic" ? 5 : 3;
-    setRestaurants((p) => p.map((x) => x.id === changePlan.id ? { ...x, plan: selectedPlan, maxUsers } : x));
-    addAudit("Plan actualizado", `${changePlan.name}: ${PLAN_LABELS[prev]} → ${PLAN_LABELS[selectedPlan]}`, "billing", changePlan.name);
-    showToast(`Plan de ${changePlan.name} actualizado a ${PLAN_LABELS[selectedPlan]}`);
+    const prevLabel = planLabel(changePlan.plan, planConfigs);
+    const cfg = planConfigs.find((p) => p.id === selectedPlan);
+    if (!cfg) { showToast("Ese plan ya no existe en el catálogo", "error"); return; }
+    const target = changePlan;
     setChangePlan(null);
+    const res = await fetch(`/api/superadmin/restaurants/${target.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan: selectedPlan, maxUsers: cfg.maxUsers, productId: cfg.productId, billingMode: cfg.billingMode }),
+    }).catch(() => null);
+    if (!res || !res.ok) { showToast("No se pudo guardar el cambio de plan — reintenta", "error"); return; }
+    setRestaurants((p) => p.map((x) => x.id === target.id ? { ...x, plan: selectedPlan, maxUsers: cfg.maxUsers, productId: cfg.productId, billingMode: cfg.billingMode } : x));
+    addAudit("Plan actualizado", `${target.name}: ${prevLabel} → ${cfg.name}`, "billing", target.name);
+    showToast(`Plan de ${target.name} actualizado a ${cfg.name}`);
   };
 
   const total = restaurants.reduce((s, r) => s + r.balance, 0);
-  const revenue = restaurants.filter((r) => r.plan !== "trial" && r.status === "active").reduce((s, r) => s + PLAN_PRICE[r.plan], 0);
+  const revenue = restaurants.filter((r) => r.plan !== "trial" && r.status === "active").reduce((s, r) => s + planPrice(r.plan, planConfigs), 0);
 
   return (
     <div>
@@ -749,7 +1136,7 @@ function Billing({
                   <div style={{ fontWeight: 600 }}>{r.name}</div>
                   <div style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>{r.email}</div>
                 </td>
-                <td><Badge type={PLAN_COLORS[r.plan]}>{PLAN_LABELS[r.plan]}</Badge></td>
+                <td><Badge type={planColor(r.plan, planConfigs)}>{planLabel(r.plan, planConfigs)}</Badge></td>
                 <td style={{ color: "var(--text-secondary)" }}>{r.lastPayment}</td>
                 <td style={{ color: r.nextPayment === "Vencida" ? "#ef4444" : "var(--text-primary)", fontWeight: r.nextPayment === "Vencida" ? 700 : 400 }}>{r.nextPayment}</td>
                 <td style={{ color: r.balance > 0 ? "#ef4444" : "var(--accent)", fontWeight: 700 }}>{r.balance > 0 ? `$${r.balance.toLocaleString()}` : "—"}</td>
@@ -768,15 +1155,16 @@ function Billing({
 
       {changePlan && (
         <Modal title={`Cambiar plan — ${changePlan.name}`} onClose={() => setChangePlan(null)}>
-          <p style={{ fontSize: ".86rem", color: "var(--text-secondary)", marginBottom: "16px" }}>Plan actual: <strong style={{ color: "var(--text-primary)" }}>{PLAN_LABELS[changePlan.plan]}</strong></p>
-          {(["trial", "basic", "premium"] as Plan[]).map((p) => (
-            <div key={p} onClick={() => setSelectedPlan(p)} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px", marginBottom: "8px", borderRadius: "10px", border: `1px solid ${selectedPlan === p ? "var(--accent)" : "var(--border)"}`, background: selectedPlan === p ? "var(--accent-dim)" : "var(--bg-elevated)", cursor: "pointer", transition: "all .15s" }}>
-              <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${selectedPlan === p ? "var(--accent)" : "var(--border)"}`, background: selectedPlan === p ? "var(--accent)" : "transparent", flexShrink: 0 }} />
+          <p style={{ fontSize: ".86rem", color: "var(--text-secondary)", marginBottom: "16px" }}>Plan actual: <strong style={{ color: "var(--text-primary)" }}>{planLabel(changePlan.plan, planConfigs)}</strong></p>
+          <p style={{ fontSize: ".76rem", color: "var(--text-secondary)", marginBottom: "12px" }}>Cambiar de producto (ej. mi-menu → mi-proyecto) solo actualiza el plan y activa los flags — la copia de datos entre productos es manual por ahora. Usa &quot;Cambiar de plan/producto&quot; desde el detalle del restaurante para el flujo con dry-run.</p>
+          {planConfigs.filter((p) => p.active || p.id === changePlan.plan).map((p) => (
+            <div key={p.id} onClick={() => setSelectedPlan(p.id)} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px", marginBottom: "8px", borderRadius: "10px", border: `1px solid ${selectedPlan === p.id ? "var(--accent)" : "var(--border)"}`, background: selectedPlan === p.id ? "var(--accent-dim)" : "var(--bg-elevated)", cursor: "pointer", transition: "all .15s" }}>
+              <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${selectedPlan === p.id ? "var(--accent)" : "var(--border)"}`, background: selectedPlan === p.id ? "var(--accent)" : "transparent", flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, color: "var(--text-primary)" }}>{PLAN_LABELS[p]}</div>
-                <div style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>{PLAN_PRICE[p] === 0 ? "Gratis 30 días" : `$${PLAN_PRICE[p].toLocaleString()}/mes`} · máx {p === "premium" ? 20 : p === "basic" ? 5 : 3} usuarios</div>
+                <div style={{ fontWeight: 700, color: "var(--text-primary)" }}>{p.name} {p.productId && <span style={{ fontSize: ".7rem", fontWeight: 500, color: "var(--text-secondary)" }}>· {p.productId}</span>}</div>
+                <div style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>{p.price === 0 ? `Gratis ${p.trialDays} días` : p.billingMode === "unico" ? `$${p.price.toLocaleString()} único` : `$${p.price.toLocaleString()}/mes`} · máx {p.maxUsers} usuarios</div>
               </div>
-              {selectedPlan === p && <span style={{ color: "var(--accent)", fontWeight: 700 }}>✓</span>}
+              {selectedPlan === p.id && <span style={{ color: "var(--accent)", fontWeight: 700 }}>✓</span>}
             </div>
           ))}
           <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
@@ -803,10 +1191,8 @@ function AuditLog({ log, showToast }: { log: AuditEntry[]; showToast: (msg: stri
 
   // Genera un Blob CSV y dispara una descarga programática mediante un <a> temporal.
   const exportCSV = () => {
-    const header = "Fecha,Tipo,Usuario,Restaurante,Acción,Detalles,IP\n";
-    const rows = log.map((e) => `"${e.ts}","${e.type}","${e.user}","${e.restaurant}","${e.action}","${e.details}","${e.ip}"`).join("\n");
-    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "auditoria.csv"; a.click();
+    exportCsv("auditoria.csv", ["Fecha", "Tipo", "Usuario", "Restaurante", "Acción", "Detalles", "IP"],
+      log.map((e) => [e.ts, e.type, e.user, e.restaurant, e.action, e.details, e.ip]));
     showToast("CSV exportado correctamente");
   };
 
@@ -855,15 +1241,321 @@ function AuditLog({ log, showToast }: { log: AuditEntry[]; showToast: (msg: stri
   );
 }
 
+// ─── Flota de clientes ──────────────────────────────────────────────────────────
+// Monitoreo de salud de todas las instancias de clientes. Lee el caché de sa_fleet_status
+// (lo llena el cron /api/cron/fleet-refresh cada 15 min); el botón 🔄 por fila refresca bajo
+// demanda. Sin VERCEL_TOKEN/GITHUB_TOKEN configurados, el health-check HTTP sigue funcionando
+// y el resto queda en 'unknown' — nunca truena (ver lib/fleetCheck.ts).
+
+const HEALTH_COLOR: Record<FleetHealth, string> = { ok: "active", warn: "warning", error: "danger", unknown: "muted" };
+const HEALTH_DOT: Record<FleetHealth, string> = { ok: "🟢", warn: "🟡", error: "🔴", unknown: "⚪" };
+
+function Flota({ restaurants, fleetStatus, clientUpdates, setFleetStatus, showToast, productConfigs }: {
+  restaurants: Restaurant[];
+  fleetStatus: FleetStatus[];
+  clientUpdates: ClientUpdate[];
+  setFleetStatus: React.Dispatch<React.SetStateAction<FleetStatus[]>>;
+  showToast: (msg: string, type?: Toast["type"]) => void;
+  productConfigs: ProductConfig[];
+}) {
+  const [productFilter, setProductFilter] = useState<"all" | string>("all");
+  const [healthFilter, setHealthFilter] = useState<"all" | FleetHealth>("all");
+  const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState<Record<string, boolean>>({});
+  const [detail, setDetail] = useState<Restaurant | null>(null);
+
+  const statusByPk = new Map(fleetStatus.map((f) => [f.restaurantPk, f]));
+
+  const rows = restaurants
+    .map((r) => ({ r, s: statusByPk.get(r.id) }))
+    .filter(({ r, s }) => {
+      const matchProduct = productFilter === "all" || (r.productId ?? "mi-proyecto") === productFilter;
+      const matchHealth = healthFilter === "all" || (s?.health ?? "unknown") === healthFilter;
+      const matchSearch = search === "" || r.name.toLowerCase().includes(search.toLowerCase()) || (r.deployUrl ?? "").toLowerCase().includes(search.toLowerCase());
+      return matchProduct && matchHealth && matchSearch;
+    });
+
+  const counts = { ok: 0, warn: 0, error: 0, unknown: 0 };
+  for (const r of restaurants) counts[(statusByPk.get(r.id)?.health ?? "unknown")]++;
+
+  const refreshOne = async (r: Restaurant) => {
+    setRefreshing((p) => ({ ...p, [r.id]: true }));
+    try {
+      const res = await fetch('/api/superadmin/fleet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ restaurantId: r.id }) });
+      if (!res.ok) { showToast(`No se pudo refrescar ${r.name}`, "error"); return; }
+      const updated: FleetStatus = await res.json();
+      setFleetStatus((prev) => [updated, ...prev.filter((f) => f.restaurantPk !== r.id)]);
+      showToast(`${r.name} actualizado`);
+    } finally {
+      setRefreshing((p) => ({ ...p, [r.id]: false }));
+    }
+  };
+
+  const exportCSV = () => {
+    exportCsv("flota.csv", ["Cliente", "Producto", "Estado", "Vercel", "Deploy SHA", "Parches pendientes", "Último check"],
+      rows.map(({ r, s }) => [r.name, r.productId ?? "", s?.health ?? "unknown", s?.vercelState ?? "", s?.vercelDeploySha ?? "", s?.commitsBehind ?? "", s?.checkedAt ?? ""]));
+    showToast("CSV exportado correctamente");
+  };
+
+  return (
+    <div>
+      <div className="sa-section-header">
+        <div><div className="sa-section-title"><Icon name="activity" size={22} /> Flota de clientes</div><div className="sa-section-sub">{restaurants.length} instancias · {counts.ok} al día · {counts.warn} con pendientes · {counts.error} caídas</div></div>
+        <button className="sa-btn" onClick={exportCSV}><Icon name="download" size={16} /> Exportar CSV</button>
+      </div>
+
+      <div className="sa-kpi-strip" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+        <div className="sa-kpi-card"><div className="sa-kpi-top"><span className="sa-kpi-label">🟢 Al día</span></div><div className="sa-kpi-value">{counts.ok}</div></div>
+        <div className="sa-kpi-card"><div className="sa-kpi-top"><span className="sa-kpi-label">🟡 Con pendientes</span></div><div className="sa-kpi-value">{counts.warn}</div></div>
+        <div className="sa-kpi-card"><div className="sa-kpi-top"><span className="sa-kpi-label">🔴 Caídas</span></div><div className="sa-kpi-value">{counts.error}</div></div>
+        <div className="sa-kpi-card"><div className="sa-kpi-top"><span className="sa-kpi-label">⚪ Sin config</span></div><div className="sa-kpi-value">{counts.unknown}</div></div>
+      </div>
+
+      <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap", marginTop: "16px" }}>
+        <div className="sa-search" style={{ flex: 1, minWidth: "200px" }}>
+          <span style={{ color: "var(--text-muted)", display: "flex" }}><Icon name="search" size={16} /></span>
+          <input placeholder="Buscar por nombre o URL…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        {["all", ...productConfigs.map((p) => p.id)].map((f) => (
+          <button key={f} className={`sa-chip${productFilter === f ? " active" : ""}`} onClick={() => setProductFilter(f)}>{f === "all" ? "Todos" : f}</button>
+        ))}
+        {(["all", "ok", "warn", "error", "unknown"] as const).map((f) => (
+          <button key={f} className={`sa-chip${healthFilter === f ? " active" : ""}`} onClick={() => setHealthFilter(f)}>{f === "all" ? "Cualquier estado" : `${HEALTH_DOT[f]} ${f}`}</button>
+        ))}
+      </div>
+
+      <div className="sa-card">
+        <table className="sa-table">
+          <thead><tr><th>Cliente</th><th>Producto</th><th>Estado</th><th>Deploy</th><th>Versión</th><th>Últ. check</th><th>Acciones</th></tr></thead>
+          <tbody>
+            {rows.length === 0
+              ? <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text-muted)", padding: "30px" }}>Sin resultados</td></tr>
+              : rows.map(({ r, s }) => (
+                <tr key={r.id}>
+                  <td style={{ fontWeight: 600 }}>{r.name}</td>
+                  <td style={{ color: "var(--text-secondary)" }}>{r.productId ?? "mi-proyecto"}</td>
+                  <td><Badge type={HEALTH_COLOR[s?.health ?? "unknown"]}>{HEALTH_DOT[s?.health ?? "unknown"]} {s?.healthReason ?? "Sin chequear"}</Badge></td>
+                  <td style={{ color: "var(--text-secondary)", fontSize: ".82rem" }}>{s?.vercelState ?? "—"}</td>
+                  <td style={{ fontFamily: "monospace", fontSize: ".78rem", color: "var(--text-secondary)" }}>{s?.vercelDeploySha?.slice(0, 7) ?? s?.repoHeadSha?.slice(0, 7) ?? "—"}</td>
+                  <td style={{ color: "var(--text-muted)", fontSize: ".78rem", whiteSpace: "nowrap" }}>{s?.checkedAt ? new Date(s.checkedAt).toLocaleTimeString() : "nunca"}</td>
+                  <td>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <button className="sa-btn sm" onClick={() => refreshOne(r)} disabled={refreshing[r.id]}><Icon name="refresh" size={14} /></button>
+                      <button className="sa-btn sm" onClick={() => setDetail(r)}><Icon name="eye" size={14} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+
+      {detail && (() => {
+        const s = statusByPk.get(detail.id);
+        const history = clientUpdates.filter((u) => u.restaurantPk === detail.id).slice(0, 5);
+        return (
+          <Modal title={`${detail.name} — Flota`} onClose={() => setDetail(null)}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
+              {[
+                ["Estado", `${HEALTH_DOT[s?.health ?? "unknown"]} ${s?.healthReason ?? "Sin chequear"}`],
+                ["URL", detail.deployUrl ?? "—"], ["Repo", detail.repoOwner && detail.repoName ? `${detail.repoOwner}/${detail.repoName}` : "—"],
+                ["Vercel", s?.vercelState ?? "—"], ["Error Vercel", s?.vercelError ?? "—"],
+                ["Parches pendientes", s?.commitsBehind != null ? String(s.commitsBehind) : "—"], ["Error GitHub", s?.githubError ?? "—"],
+              ].map(([k, v]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border)", fontSize: ".84rem" }}>
+                  <span style={{ color: "var(--text-secondary)" }}>{k}</span>
+                  <span style={{ fontWeight: 600, color: "var(--text-primary)", textAlign: "right" }}>{v}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: ".78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--text-secondary)", marginBottom: "8px" }}>Últimos parches</div>
+            {history.length === 0
+              ? <div style={{ fontSize: ".82rem", color: "var(--text-muted)" }}>Sin historial todavía</div>
+              : history.map((u) => (
+                <div key={u.id} style={{ fontSize: ".82rem", padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
+                  <strong>{u.versionLabel ?? u.commitHash}</strong> — {u.descripcion ?? u.commitMessage} <Badge type={RESULT_COLORS[u.resultado]}>{RESULT_LABELS[u.resultado]}</Badge>
+                </div>
+              ))}
+          </Modal>
+        );
+      })()}
+    </div>
+  );
+}
+
+// ─── Client Updates (historial de parches) ─────────────────────────────────────
+// Clon estructural de AuditLog (mismo patrón sa-tabs + sa-search + tabla + exportCSV),
+// más un bloque de "cobertura del último parche" y un formulario para registrar uno nuevo.
+
+const UPDATE_ICONS: Record<UpdateTipo, IconName> = { fix: "wrench", feature: "plus", security: "shield", config: "edit", rollback: "unlock" };
+const UPDATE_COLORS: Record<UpdateTipo, string> = { fix: "info", feature: "active", security: "danger", config: "muted", rollback: "warning" };
+const RESULT_COLORS: Record<UpdateResultado, string> = { pendiente: "muted", aplicado: "info", deploy_ok: "active", deploy_error: "danger", revertido: "warning" };
+const RESULT_LABELS: Record<UpdateResultado, string> = { pendiente: "Pendiente", aplicado: "Aplicado", deploy_ok: "Deploy OK", deploy_error: "Deploy falló", revertido: "Revertido" };
+
+function ClientUpdates({ updates, restaurants, onCreated, showToast, productConfigs }: {
+  updates: ClientUpdate[];
+  restaurants: Restaurant[];
+  onCreated: (entries: ClientUpdate[]) => void;
+  showToast: (msg: string, type?: Toast["type"]) => void;
+  productConfigs: ProductConfig[];
+}) {
+  const [filter, setFilter] = useState<"all" | UpdateTipo>("all");
+  const [search, setSearch] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [target, setTarget] = useState<"mi-card" | "mi-menu" | "mi-proyecto" | string>("mi-proyecto");
+  const [commitHash, setCommitHash] = useState("");
+  const [versionLabel, setVersionLabel] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [tipo, setTipo] = useState<UpdateTipo>("fix");
+  const [saving, setSaving] = useState(false);
+
+  const filtered = updates.filter((u) => {
+    const matchType = filter === "all" || u.tipo === filter;
+    const q = search.toLowerCase();
+    const matchSearch = search === "" || u.restaurantName.toLowerCase().includes(q) || (u.descripcion ?? "").toLowerCase().includes(q) || (u.commitMessage ?? "").toLowerCase().includes(q);
+    return matchType && matchSearch;
+  });
+
+  // Cobertura: agrupa por el versionLabel más reciente que exista en el historial.
+  const latestLabel = updates[0]?.versionLabel;
+  const latestBatch = latestLabel ? updates.filter((u) => u.versionLabel === latestLabel) : [];
+  const coverage = {
+    ok: latestBatch.filter((u) => u.resultado === "aplicado" || u.resultado === "deploy_ok").length,
+    pending: latestBatch.filter((u) => u.resultado === "pendiente").length,
+    error: latestBatch.filter((u) => u.resultado === "deploy_error").length,
+  };
+
+  const exportCSV = () => {
+    exportCsv("parches.csv", ["Fecha", "Tipo", "Cliente", "Producto", "Commit", "Descripción", "Resultado", "Aplicado por"],
+      updates.map((u) => [u.aplicadoAt, u.tipo, u.restaurantName, u.productId ?? "", u.commitHash ?? "", u.descripcion ?? "", u.resultado, u.aplicadoPor]));
+    showToast("CSV exportado correctamente");
+  };
+
+  const isProduct = productConfigs.some((p) => p.id === target);
+
+  const submit = async () => {
+    if (!commitHash.trim() && !descripcion.trim()) { showToast("Indica al menos el commit o una descripción", "error"); return; }
+    setSaving(true);
+    const body: Record<string, unknown> = {
+      commitHash: commitHash.trim() || undefined,
+      versionLabel: versionLabel.trim() || undefined,
+      descripcion: descripcion.trim() || undefined,
+      tipo,
+      resultado: "aplicado",
+    };
+    if (isProduct) body.product = target; else body.restaurantIds = [target];
+
+    const res = await fetch('/api/superadmin/client-updates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    setSaving(false);
+    if (!res.ok) { showToast("No se pudo registrar el parche", "error"); return; }
+    const data = await res.json();
+    onCreated(data.entries ?? []);
+    const skippedMsg = data.skipped?.length ? ` · ${data.skipped.length} excluidos (sin actualizaciones vigentes)` : "";
+    showToast(`Parche registrado para ${data.created} cliente(s)${skippedMsg}`);
+    setShowForm(false); setCommitHash(""); setVersionLabel(""); setDescripcion("");
+  };
+
+  const inpStyle: React.CSSProperties = { width: "100%", background: "var(--bg-input)", border: "1px solid var(--border-light)", borderRadius: "8px", padding: "9px 12px", color: "var(--text-primary)", fontSize: ".86rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box", marginBottom: "12px" };
+  const labelStyle: React.CSSProperties = { display: "block", color: "var(--text-secondary)", fontSize: ".78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: "5px" };
+
+  return (
+    <div>
+      <div className="sa-section-header">
+        <div><div className="sa-section-title"><Icon name="refresh" size={22} /> Parches y versiones</div><div className="sa-section-sub">{updates.length} registros · historial de actualizaciones aplicadas por cliente</div></div>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button className="sa-btn" onClick={exportCSV}><Icon name="download" size={16} /> Exportar CSV</button>
+          <button className="sa-btn primary" onClick={() => setShowForm(true)}><Icon name="plus" size={16} /> Registrar parche</button>
+        </div>
+      </div>
+
+      {latestLabel && (
+        <div className="sa-card" style={{ marginBottom: "16px", padding: "14px 18px" }}>
+          <div style={{ fontSize: ".82rem", color: "var(--text-secondary)", marginBottom: "8px" }}>Último parche · <strong style={{ color: "var(--text-primary)" }}>{latestLabel}</strong></div>
+          <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", fontSize: ".84rem" }}>
+            <span style={{ color: "var(--accent)", fontWeight: 700 }}>🟢 Al día {coverage.ok}</span>
+            <span style={{ color: "#eab308", fontWeight: 700 }}>🟡 Pendientes {coverage.pending}</span>
+            <span style={{ color: "#ef4444", fontWeight: 700 }}>🔴 Falló el deploy {coverage.error}</span>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap" }}>
+        <div className="sa-search" style={{ flex: 1, minWidth: "200px" }}>
+          <span style={{ color: "var(--text-muted)", display: "flex" }}><Icon name="search" size={16} /></span>
+          <input placeholder="Buscar cliente, commit, descripción…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <div className="sa-tabs" style={{ margin: 0 }}>
+          {(["all", "fix", "feature", "security", "config", "rollback"] as const).map((t) => (
+            <button key={t} className={`sa-tab${filter === t ? " active" : ""}`} onClick={() => setFilter(t)}>
+              {t === "all" ? "Todos" : t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="sa-card">
+        <table className="sa-table">
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Producto</th><th>Commit</th><th>Descripción</th><th>Resultado</th><th>Por</th></tr></thead>
+          <tbody>
+            {filtered.length === 0
+              ? <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text-muted)", padding: "30px" }}>Sin registros</td></tr>
+              : filtered.map((u) => (
+                <tr key={u.id}>
+                  <td style={{ color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{new Date(u.aplicadoAt).toLocaleString()}</td>
+                  <td><span style={{ display: "flex", alignItems: "center", gap: "6px" }}><Icon name={UPDATE_ICONS[u.tipo]} size={16} /> <Badge type={UPDATE_COLORS[u.tipo]}>{u.tipo}</Badge></span></td>
+                  <td style={{ fontWeight: 600 }}>{u.restaurantName}</td>
+                  <td style={{ color: "var(--text-secondary)" }}>{u.productId ?? "—"}</td>
+                  <td style={{ fontFamily: "monospace", fontSize: ".78rem", color: "var(--text-secondary)" }}>{u.versionLabel ?? u.commitHash?.slice(0, 7) ?? "—"}</td>
+                  <td style={{ color: "var(--text-secondary)", fontSize: ".82rem" }}>{u.descripcion ?? u.commitMessage ?? "—"}</td>
+                  <td><Badge type={RESULT_COLORS[u.resultado]}>{RESULT_LABELS[u.resultado]}</Badge></td>
+                  <td style={{ color: "var(--text-muted)", fontSize: ".8rem" }}>{u.aplicadoPor}</td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+
+      {showForm && (
+        <Modal title="Registrar parche" onClose={() => setShowForm(false)}>
+          <label style={labelStyle}>Aplicar a</label>
+          <select style={{ ...inpStyle, cursor: "pointer" }} value={target} onChange={(e) => setTarget(e.target.value)}>
+            <optgroup label="Producto completo">
+              {productConfigs.map((p) => <option key={p.id} value={p.id}>Todos los clientes de {p.id}</option>)}
+            </optgroup>
+            <optgroup label="Cliente específico">
+              {restaurants.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </optgroup>
+          </select>
+          <label style={labelStyle}>Tipo</label>
+          <select style={{ ...inpStyle, cursor: "pointer" }} value={tipo} onChange={(e) => setTipo(e.target.value as UpdateTipo)}>
+            {(["fix", "feature", "security", "config", "rollback"] as const).map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <label style={labelStyle}>Commit / versión</label>
+          <input style={inpStyle} placeholder="a1b2c3d" value={commitHash} onChange={(e) => setCommitHash(e.target.value)} />
+          <label style={labelStyle}>Etiqueta de versión (opcional)</label>
+          <input style={inpStyle} placeholder="2026-08-21.3" value={versionLabel} onChange={(e) => setVersionLabel(e.target.value)} />
+          <label style={labelStyle}>Descripción</label>
+          <input style={inpStyle} placeholder="fix: QR de sellado no se generaba en iOS" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+          <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+            <button className="sa-btn primary" style={{ flex: 1 }} onClick={submit} disabled={saving}>{saving ? "Guardando…" : "Registrar"}</button>
+            <button className="sa-btn" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancelar</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 // ─── Plans ────────────────────────────────────────────────────────────────────
 
-function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAudit, showToast }: {
+function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAudit, showToast, productConfigs }: {
   restaurants: Restaurant[];
   setRestaurants: React.Dispatch<React.SetStateAction<Restaurant[]>>;
   planConfigs: PlanConfig[];
   setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
   addAudit: (action: string, details: string, type: AuditType, restaurant?: string) => void;
   showToast: (msg: string, type?: Toast["type"]) => void;
+  productConfigs: ProductConfig[];
 }) {
   const [assign, setAssign]   = useState<{ plan: Plan; r: Restaurant } | null>(null);
   const [editing, setEditing] = useState<PlanConfig | null>(null);
@@ -899,13 +1591,33 @@ function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAu
   };
 
   // Lee el maxUsers del planConfig (no hardcodeado) para que el editor lo pueda cambiar sin tocar este código.
-  const applyAssign = () => {
+  // Reusa /api/superadmin/upgrade-plan en vez de un PATCH parcial a restaurants: ese endpoint ya
+  // recalcula el set completo de campos de un cambio de plan (billing_mode, subscription_status,
+  // updates_until, support_until, previous_plan) y deja snapshot en sa_migrations para poder
+  // deshacerlo. Un PATCH parcial aquí (como antes) dejaba esos campos desactualizados — ej. pasar
+  // de mensual a único no recalculaba updates_until, así que client-updates seguía mandando
+  // parches gratis según la ventana vieja.
+  const applyAssign = async () => {
     if (!assign) return;
-    const cfg = planConfigs.find((p) => p.id === assign.plan)!;
-    setRestaurants((p) => p.map((x) => x.id === assign.r.id ? { ...x, plan: assign.plan, maxUsers: cfg.maxUsers } : x));
-    addAudit("Plan asignado", `${assign.r.name}: → ${cfg.name}`, "billing", assign.r.name);
-    showToast(`${assign.r.name} movido a plan ${cfg.name}`);
+    const target = assign;
     setAssign(null);
+    // Sin acknowledgeDataLoss: si esto resulta ser un downgrade de producto, el endpoint lo
+    // rechaza — este flujo rápido no tiene la vista previa de "qué se pierde" que sí tiene el
+    // modal "Cambiar plan/producto"; para un downgrade real hay que usar ese, no este atajo.
+    const res = await fetch('/api/superadmin/upgrade-plan', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restaurantId: target.r.id, targetPlanId: target.plan, dryRun: false }),
+    }).catch(() => null);
+    const data = await res?.json().catch(() => null);
+    if (!res || !res.ok || !data?.ok) {
+      const hint = data?.hint ? ` ${data.hint}` : "";
+      showToast(`${data?.error ?? "No se pudo guardar el cambio de plan"}${hint}`, "error");
+      return;
+    }
+    const cfg = planConfigs.find((p) => p.id === target.plan);
+    setRestaurants((p) => p.map((x) => x.id === target.r.id ? { ...x, plan: target.plan, productId: cfg?.productId, billingMode: cfg?.billingMode, maxUsers: data.changes?.maxUsers ?? x.maxUsers } : x));
+    addAudit("Plan asignado", `${target.r.name}: → ${cfg?.name ?? target.plan}`, "billing", target.r.name);
+    showToast(data.warnings?.length ? `Plan asignado — revisa: ${data.warnings[0]}` : `${target.r.name} movido a plan ${cfg?.name ?? target.plan}`);
   };
 
   const inpStyle = (extra?: React.CSSProperties): React.CSSProperties => ({
@@ -922,38 +1634,53 @@ function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAu
         <div><div className="sa-section-title"><Icon name="gem" size={22} /> Planes y niveles</div><div className="sa-section-sub">Edita precio, usuarios y características de cada plan</div></div>
       </div>
 
-      {/* Plan cards */}
-      <div className="sa-grid-3" style={{ marginBottom: "24px" }}>
-        {planConfigs.map((p) => (
-          <div key={p.id} className={`sa-plan-card${p.id === "premium" ? " featured" : ""}`}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px" }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: "1rem", color: p.color, marginBottom: "4px" }}>{p.name}</div>
-                <div className="sa-plan-price">
-                  {p.price === 0 ? "Gratis" : `$${p.price.toLocaleString()}`}
-                  <span>{p.price === 0 ? ` · ${p.trialDays} días` : " / mes"}</span>
+      {/* Plan cards — agrupadas por producto. Los planes legacy (trial/basic/premium, inactive)
+          no se muestran aquí pero siguen resolviendo en la tabla de abajo para clientes que ya los tienen. */}
+      {productConfigs.map((prod) => {
+        const plansOfProduct = planConfigs.filter((p) => p.active && p.productId === prod.id);
+        if (plansOfProduct.length === 0) return null;
+        return (
+          <div key={prod.id} style={{ marginBottom: "24px" }}>
+            <div style={{ fontSize: ".8rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--text-secondary)", marginBottom: "10px" }}>{prod.id}</div>
+            <div className="sa-grid-3">
+              {plansOfProduct.map((p) => (
+                <div key={p.id} className="sa-plan-card">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px" }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: "1rem", color: p.color, marginBottom: "4px" }}>{p.name}</div>
+                      <div className="sa-plan-price">
+                        {p.price === 0 ? "Gratis" : `$${p.price.toLocaleString()}`}
+                        <span>{p.price === 0 ? ` · ${p.trialDays} días` : p.billingMode === "unico" ? " único" : " / mes"}</span>
+                      </div>
+                      <div style={{ fontSize: ".75rem", color: "var(--text-secondary)", marginTop: "4px" }}>
+                        Máx {p.maxUsers} usuarios
+                      </div>
+                    </div>
+                    <span style={{ fontSize: ".72rem", padding: "3px 8px", borderRadius: "20px", background: "var(--bg-elevated)", color: "var(--text-secondary)", fontWeight: 600 }}>
+                      {counts[p.id] ?? 0} clientes
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: "6px", marginBottom: "10px", flexWrap: "wrap" }}>
+                    <Badge type={p.incluyeActualizaciones ? "active" : "muted"}>
+                      {p.incluyeActualizaciones ? `Actualizaciones ${p.mesesActualizaciones ? `· ${p.mesesActualizaciones}m` : "ilimitadas"}` : "Sin actualizaciones"}
+                    </Badge>
+                  </div>
+                  {p.features.map((f, i) => (
+                    <div key={i} className={`sa-plan-feature${f.included ? " included" : ""}`}>
+                      <div className={`sa-plan-feature-dot${f.included ? "" : " off"}`} />
+                      {f.text}
+                    </div>
+                  ))}
+                  <button className="sa-btn full" style={{ marginTop: "14px", borderColor: p.color, color: p.color }}
+                    onClick={() => openEditor(p)}>
+                    <Icon name="edit" size={16} /> Editar plan
+                  </button>
                 </div>
-                <div style={{ fontSize: ".75rem", color: "var(--text-secondary)", marginTop: "4px" }}>
-                  Máx {p.maxUsers} usuarios
-                </div>
-              </div>
-              <span style={{ fontSize: ".72rem", padding: "3px 8px", borderRadius: "20px", background: "var(--bg-elevated)", color: "var(--text-secondary)", fontWeight: 600 }}>
-                {counts[p.id] ?? 0} clientes
-              </span>
+              ))}
             </div>
-            {p.features.map((f, i) => (
-              <div key={i} className={`sa-plan-feature${f.included ? " included" : ""}`}>
-                <div className={`sa-plan-feature-dot${f.included ? "" : " off"}`} />
-                {f.text}
-              </div>
-            ))}
-            <button className="sa-btn full" style={{ marginTop: "14px", borderColor: p.color, color: p.color }}
-              onClick={() => openEditor(p)}>
-              <Icon name="edit" size={16} /> Editar plan
-            </button>
           </div>
-        ))}
-      </div>
+        );
+      })}
 
       {/* Assign table */}
       <div className="sa-card">
@@ -963,16 +1690,18 @@ function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAu
             <thead><tr><th>Restaurante</th><th>Plan actual</th><th>Precio/mes</th><th>Usuarios</th><th>Cambiar a</th></tr></thead>
             <tbody>
               {restaurants.map((r) => {
-                const cfg = planConfigs.find((p) => p.id === r.plan)!;
+                // Fallback: si el plan del restaurante ya no está en el catálogo (legacy removido a mano),
+                // no truena la fila — muestra el id crudo y sigue permitiendo reasignar.
+                const cfg = planConfigs.find((p) => p.id === r.plan) ?? { id: r.plan, name: r.plan, price: 0 } as PlanConfig;
                 return (
                   <tr key={r.id}>
                     <td style={{ fontWeight: 600 }}>{r.name}</td>
-                    <td><Badge type={PLAN_COLORS[r.plan]}>{cfg.name}</Badge></td>
+                    <td><Badge type={planColor(r.plan, planConfigs)}>{cfg.name}</Badge></td>
                     <td style={{ color: "var(--accent)", fontWeight: 700 }}>{cfg.price === 0 ? "Gratis" : `$${cfg.price.toLocaleString()}`}</td>
                     <td><span style={{ fontWeight: 600 }}>{r.users}</span><span style={{ color: "var(--text-muted)" }}>/{r.maxUsers}</span></td>
                     <td>
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        {planConfigs.filter((p) => p.id !== r.plan).map((p) => (
+                      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                        {planConfigs.filter((p) => p.id !== r.plan && p.active).map((p) => (
                           <button key={p.id} className="sa-btn sm" onClick={() => setAssign({ plan: p.id, r })}>
                             → {p.name}
                           </button>
@@ -1249,7 +1978,7 @@ function Discounts({ addAudit, showToast }: {
 
 // ─── Activity ─────────────────────────────────────────────────────────────────
 
-function Activity({ restaurants }: { restaurants: Restaurant[] }) {
+function Activity({ restaurants, planConfigs }: { restaurants: Restaurant[]; planConfigs: PlanConfig[] }) {
   const sorted = [...restaurants].sort((a, b) => b.loginCount - a.loginCount);
   const avgLogins = Math.round(restaurants.reduce((s, r) => s + r.loginCount, 0) / restaurants.length);
 
@@ -1318,7 +2047,7 @@ function Activity({ restaurants }: { restaurants: Restaurant[] }) {
                       <span style={{ fontSize: ".78rem", color: h.color, fontWeight: 600 }}>{h.label}</span>
                     </div>
                   </td>
-                  <td><Badge type={PLAN_COLORS[r.plan]}>{PLAN_LABELS[r.plan]}</Badge></td>
+                  <td><Badge type={planColor(r.plan, planConfigs)}>{planLabel(r.plan, planConfigs)}</Badge></td>
                 </tr>
               );
             })}
@@ -1349,19 +2078,24 @@ function Activity({ restaurants }: { restaurants: Restaurant[] }) {
 
 // ─── Maintenance ──────────────────────────────────────────────────────────────
 
-function Maintenance({ restaurants, setRestaurants, addAudit, showToast }: {
+function Maintenance({ restaurants, setRestaurants, addAudit, showToast, planConfigs }: {
   restaurants: Restaurant[];
   setRestaurants: React.Dispatch<React.SetStateAction<Restaurant[]>>;
   addAudit: (action: string, details: string, type: AuditType, restaurant?: string) => void;
   showToast: (msg: string, type?: Toast["type"]) => void;
+  planConfigs: PlanConfig[];
 }) {
   const [reasons, setReasons] = useState<Record<string, string>>(
     Object.fromEntries(restaurants.map((r) => [r.id, r.status === "maintenance" ? "Migración de base de datos" : ""]))
   );
 
   // Alterna entre mantenimiento y activo. No toca el estado "suspended" (eso es responsabilidad de Billing).
-  const toggle = (r: Restaurant) => {
+  const toggle = async (r: Restaurant) => {
     const next: Status = r.status === "maintenance" ? "active" : "maintenance";
+    const res = await fetch(`/api/superadmin/restaurants/${r.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: next }),
+    }).catch(() => null);
+    if (!res || !res.ok) { showToast("No se pudo guardar el cambio de mantenimiento — reintenta", "error"); return; }
     setRestaurants((p) => p.map((x) => x.id === r.id ? { ...x, status: next } : x));
     addAudit(`Modo mantenimiento ${next === "maintenance" ? "activado" : "desactivado"}`, `${r.name}${reasons[r.id] ? ` — ${reasons[r.id]}` : ""}`, "update", r.name);
     showToast(`${r.name}: mantenimiento ${next === "maintenance" ? "activado" : "desactivado"}`);
@@ -1381,7 +2115,7 @@ function Maintenance({ restaurants, setRestaurants, addAudit, showToast }: {
                 <div style={{ width: 36, height: 36, borderRadius: "10px", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name="store" /></div>
                 <div style={{ flex: "0 0 160px" }}>
                   <div style={{ fontWeight: 600, fontSize: ".9rem" }}>{r.name}</div>
-                  <div style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>{PLAN_LABELS[r.plan]} · {r.users} usuarios</div>
+                  <div style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>{planLabel(r.plan, planConfigs)} · {r.users} usuarios</div>
                 </div>
                 <input
                   placeholder="Razón del mantenimiento (opcional)"
@@ -2111,7 +2845,7 @@ type IconName = "bar-chart" | "trending-up" | "store" | "flag" | "lock" | "inbox
   | "alert-triangle" | "users" | "calendar" | "check-circle" | "circle" | "target"
   | "sun" | "moon" | "plus" | "edit" | "trash" | "eye" | "x-circle" | "info" | "ban"
   | "download" | "globe" | "save" | "clipboard" | "shuffle" | "user" | "smartphone"
-  | "clock" | "unlock" | "package" | "archive" | "pin";
+  | "clock" | "unlock" | "package" | "archive" | "pin" | "activity" | "refresh";
 
 function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -2157,6 +2891,8 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
     case "package":         return <svg {...p}><path d="M12 3l8 4.2v9.6L12 21l-8-4.2V7.2z" /><path d="M4 7.2 12 11l8-3.8" /><line x1="12" y1="11" x2="12" y2="21" /></svg>;
     case "archive":         return <svg {...p}><rect x="3.5" y="4" width="17" height="5" rx="1.2" /><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9" /><line x1="10" y1="13" x2="14" y2="13" /></svg>;
     case "pin":             return <svg {...p}><path d="M12 21s-6.5-5.8-6.5-11A6.5 6.5 0 0 1 18.5 10c0 5.2-6.5 11-6.5 11z" /><circle cx="12" cy="10" r="2.3" /></svg>;
+    case "activity":        return <svg {...p}><polyline points="3 12 8 12 10.5 6 14 18 16.5 12 21 12" /></svg>;
+    case "refresh":         return <svg {...p}><path d="M4 12a8 8 0 0 1 14-5.2L20 9" /><polyline points="20 4 20 9 15 9" /><path d="M20 12a8 8 0 0 1-14 5.2L4 15" /><polyline points="4 20 4 15 9 15" /></svg>;
   }
 }
 
@@ -2176,6 +2912,8 @@ const NAV: { view: View; icon: IconName; label: string; section?: string }[] = [
   { view: "ventas",        icon: "dollar",      label: "Ventas Reales" },
   { view: "plans",         icon: "gem",         label: "Planes" },
   { view: "discounts",     icon: "tag",         label: "Descuentos" },
+  { view: "flota",         icon: "activity",    label: "Flota de clientes", section: "Infraestructura" },
+  { view: "updates",       icon: "refresh",     label: "Parches y versiones" },
   { view: "audit",         icon: "search",      label: "Auditoría",         section: "Config" },
   { view: "maintenance",   icon: "wrench",      label: "Mantenimiento" },
   { view: "notifications", icon: "bell",        label: "Notificaciones" },
@@ -2189,6 +2927,13 @@ function Dashboard({ onLogout, theme, toggleTheme }: { onLogout: () => void; the
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [auditLog, setAuditLog]             = useState<AuditEntry[]>([]);
   const [planConfigs, setPlanConfigs]       = useState<PlanConfig[]>([]);
+  const [productConfigs, setProductConfigs] = useState<ProductConfig[]>([]);
+  // Distingue "todavía cargando" de "cargó y el catálogo está vacío de verdad" — sin esto, un
+  // catálogo vacío (ej. la migración SQL de 2026-08-21 no se ha corrido) hace que Overview/Billing
+  // muestren "$0 de ingresos" en silencio, sin ninguna señal de que el dato real no se pudo leer.
+  const [plansLoaded, setPlansLoaded] = useState(false);
+  const [fleetStatus, setFleetStatus]       = useState<FleetStatus[]>([]);
+  const [clientUpdates, setClientUpdates]   = useState<ClientUpdate[]>([]);
   const [requests, setRequests]             = useState<AccessRequest[]>([]);
   const [toast, setToast]                   = useState<Toast | null>(null);
   const [alertDismissed, setAlertDismissed] = useState(false);
@@ -2201,9 +2946,12 @@ function Dashboard({ onLogout, theme, toggleTheme }: { onLogout: () => void; the
     // Carga inicial de todos los datos desde Supabase
     fetch('/api/superadmin/restaurants').then(r => r.json()).then(d => { if (Array.isArray(d)) setRestaurants(d) }).catch(() => {})
     fetch('/api/superadmin/audit').then(r => r.json()).then(d => { if (Array.isArray(d)) setAuditLog(d) }).catch(() => {})
-    fetch('/api/superadmin/plans').then(r => r.json()).then(d => { if (Array.isArray(d)) setPlanConfigs(d) }).catch(() => {})
+    fetch('/api/superadmin/plans').then(r => r.json()).then(d => { if (Array.isArray(d)) setPlanConfigs(d) }).catch(() => {}).finally(() => setPlansLoaded(true))
+    fetch('/api/superadmin/products').then(r => r.json()).then(d => { if (Array.isArray(d)) setProductConfigs(d) }).catch(() => {})
     fetch('/api/superadmin/requests').then(r => r.json()).then(d => { if (Array.isArray(d)) setRequests(d) }).catch(() => {})
     fetch('/api/superadmin/tickets?count=true').then(r => r.json()).then(d => setUnreadTickets(d.unread ?? 0)).catch(() => {})
+    fetch('/api/superadmin/fleet').then(r => r.json()).then(d => { if (Array.isArray(d)) setFleetStatus(d) }).catch(() => {})
+    fetch('/api/superadmin/client-updates').then(r => r.json()).then(d => { if (Array.isArray(d)) setClientUpdates(d) }).catch(() => {})
   }, []);
 
   // Auto-oculta el toast después de 3 segundos.
@@ -2225,12 +2973,12 @@ function Dashboard({ onLogout, theme, toggleTheme }: { onLogout: () => void; the
   const debtRestaurants = restaurants.filter((r) => r.balance > 0);
   const showAlert = !alertDismissed && debtRestaurants.length > 0;
 
-  // Delega el render a la vista activa, pasando las props compartidas (restaurants, addAudit, showToast).
+  // Delega el render a la vista activa, pasando las props compartidas (restaurants, addAudit, showToast, planConfigs).
   const renderView = () => {
-    const shared = { restaurants, setRestaurants, addAudit, showToast };
+    const shared = { restaurants, setRestaurants, addAudit, showToast, planConfigs, productConfigs };
     switch (view) {
       case "overview":      return <Overview {...shared} setView={setView} />;
-      case "activity":      return <Activity restaurants={restaurants} />;
+      case "activity":      return <Activity restaurants={restaurants} planConfigs={planConfigs} />;
       case "restaurants":   return <Restaurants {...shared} />;
       case "flags":         return <FeatureFlags restaurants={restaurants} addAudit={addAudit} showToast={showToast} />;
       case "permisos":      return <Permisos restaurants={restaurants} addAudit={addAudit} showToast={showToast} />;
@@ -2243,6 +2991,8 @@ function Dashboard({ onLogout, theme, toggleTheme }: { onLogout: () => void; the
       case "discounts":     return <Discounts addAudit={addAudit} showToast={showToast} />;
       case "maintenance":   return <Maintenance {...shared} />;
       case "notifications": return <Notifications showToast={showToast} />;
+      case "flota":         return <Flota restaurants={restaurants} fleetStatus={fleetStatus} clientUpdates={clientUpdates} setFleetStatus={setFleetStatus} showToast={showToast} productConfigs={productConfigs} />;
+      case "updates":       return <ClientUpdates updates={clientUpdates} restaurants={restaurants} onCreated={(entries) => setClientUpdates((prev) => [...entries, ...prev])} showToast={showToast} productConfigs={productConfigs} />;
     }
   };
 
@@ -2282,6 +3032,9 @@ function Dashboard({ onLogout, theme, toggleTheme }: { onLogout: () => void; the
                 {item.view === "solicitudes" && requests.filter((r) => r.status === "pending").length > 0 && (
                   <span className="sa-nav-badge">{requests.filter((r) => r.status === "pending").length}</span>
                 )}
+                {item.view === "flota" && fleetStatus.filter((f) => f.health === "error").length > 0 && (
+                  <span className="sa-nav-badge">{fleetStatus.filter((f) => f.health === "error").length}</span>
+                )}
               </button>
             </div>
           ))}
@@ -2296,6 +3049,12 @@ function Dashboard({ onLogout, theme, toggleTheme }: { onLogout: () => void; the
       </aside>
 
       <div className="sa-main">
+        {plansLoaded && planConfigs.length === 0 && (
+          <div className="sa-alert-banner danger">
+            <span style={{ display: "flex" }}><Icon name="alert-triangle" size={18} /></span>
+            <span><strong>El catálogo de planes está vacío.</strong> Los ingresos y badges de plan van a mostrarse en $0/sin datos hasta que corras la migración SQL (<code>Documentacion/sql/migraciones/2026-08-21-multiproducto-y-flota.sql</code>) en el SQL Editor de Supabase.</span>
+          </div>
+        )}
         {showAlert && (
           <div className="sa-alert-banner danger">
             <span style={{ display: "flex" }}><Icon name="alert-triangle" size={18} /></span>

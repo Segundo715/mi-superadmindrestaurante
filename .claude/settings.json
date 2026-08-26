@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"SEGURIDAD: Antes de vercel --prod corre: /security-review → /code-review --fix → /verify\"}'",
+            "shell": "bash"
+          }
+        ]
+      }
+    ]
+  }
+}

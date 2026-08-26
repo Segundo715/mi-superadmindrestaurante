@@ -1,9 +1,10 @@
 // Persiste y lee feature flags / permisos en la tabla settings.
-// Las claves que terminan en _portales se redirigen a la BD propia de portales
-// (supabasePortales) usando el nombre sin sufijo.
+// Las claves que terminan en _portales/_mimenu/_micard se redirigen a la BD propia de ese
+// producto usando el nombre sin sufijo.
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { supabasePortales } from '@/lib/supabasePortales'
 import { supabaseMiMenu } from '@/lib/supabaseMiMenu'
+import { supabaseMiCard } from '@/lib/supabaseMiCard'
 import { verifySaSession } from '@/lib/saAuth'
 
 export const dynamic = 'force-dynamic'
@@ -15,15 +16,24 @@ function parseValue(v: unknown): Record<string, boolean> {
   return {}
 }
 
-// Las claves _portales/_mimenu se guardan en su propia BD con el nombre limpio.
+// Las claves _portales/_mimenu/_micard se guardan en su propia BD con el nombre limpio.
 // Ej: 'feature_flags_portales' → BD portales, key 'feature_flags'
 // Ej: 'feature_flags_mimenu' → BD de mi-menu, key 'feature_flags'
+// Ej: 'feature_flags_micard' → BD de mi-card, key 'feature_flags' — SOLO si MICARD_SUPABASE_URL
+//   está configurada; si no, cae a la BD principal con la clave completa (comportamiento de
+//   siempre) para no romper nada mientras el proyecto Supabase de mi-card no exista todavía.
+//   El día que se configure esa variable en Vercel, hay que migrar a mano la fila
+//   settings.feature_flags_micard de la BD principal a settings.feature_flags en la BD de mi-card
+//   — este endpoint no migra datos existentes solo, únicamente cambia a dónde lee/escribe de ahí en adelante.
 function resolveTarget(key: string): { client: typeof supabaseAdmin; key: string } {
   if (key.endsWith('_portales')) {
     return { client: supabasePortales, key: key.replace(/_portales$/, '') }
   }
   if (key.endsWith('_mimenu')) {
     return { client: supabaseMiMenu, key: key.replace(/_mimenu$/, '') }
+  }
+  if (key.endsWith('_micard') && process.env.MICARD_SUPABASE_URL) {
+    return { client: supabaseMiCard, key: key.replace(/_micard$/, '') }
   }
   return { client: supabaseAdmin, key }
 }
