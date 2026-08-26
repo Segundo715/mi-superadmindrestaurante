@@ -124,3 +124,11 @@ CLAUDE.md,vercel.json
 app/superadmin/components/SuperAdmin.tsx
 
 ---
+
+## 2026-08-26 — Wednesday
+
+### 11:59 AM — main
+**fix: guardar snapshot completo antes de borrar un restaurante**
+app/api/superadmin/restaurants/[id]/route.ts,app/superadmin/components/SuperAdmin.tsx
+
+---
