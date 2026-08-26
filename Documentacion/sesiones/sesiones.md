@@ -100,3 +100,11 @@ app/api/save-flags/route.ts,app/superadmin/components/SuperAdmin.tsx,lib/supabas
 CLAUDE.md,CONTEXT.md,Documentacion/indice.md
 
 ---
+
+## 2026-08-26 — Wednesday
+
+### 11:12 AM — main
+**feat: registrar restaurante dispara el aprovisionamiento en la misma acción**
+CLAUDE.md,app/superadmin/components/SuperAdmin.tsx
+
+---
