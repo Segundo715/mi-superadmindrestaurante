@@ -108,3 +108,11 @@ CLAUDE.md,CONTEXT.md,Documentacion/indice.md
 CLAUDE.md,app/superadmin/components/SuperAdmin.tsx
 
 ---
+
+## 2026-08-26 — Wednesday
+
+### 11:23 AM — main
+**fix: cron de flota a 1x/día — Hobby no permite más de 1 cron diario**
+CLAUDE.md,vercel.json
+
+---
