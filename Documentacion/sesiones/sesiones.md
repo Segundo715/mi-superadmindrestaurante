@@ -84,3 +84,11 @@ app/superadmin/components/SuperAdmin.tsx,app/superadmin/superadmin.css
 app/api/save-flags/route.ts,app/superadmin/components/SuperAdmin.tsx,lib/supabaseMiMenu.ts
 
 ---
+
+## 2026-08-26 — Wednesday
+
+### 10:50 AM — main
+**feat: catálogo multi-producto, flota, parches y aprovisionamiento de clientes**
+.claude/settings.json,CLAUDE.md,Documentacion/documentos/plan-multiproducto-y-flota-2026-08-21.md,Documentacion/documentos/prompt-original-multiproducto-2026-08-21.md,Documentacion/sql/migraciones/2026-08-21-multiproducto-y-flota.sql,Documentacion/sql/tablas.sql,app/api/cron/fleet-refresh/route.ts,app/api/public/register/route.ts
+
+---
