@@ -477,7 +477,7 @@ function Restaurants({
 
       <div className="sa-card">
         <table className="sa-table">
-          <thead><tr><th>Restaurante</th><th>Plan</th><th>Estado</th><th>Usuarios</th><th>Saldo</th><th>Próx. pago</th><th>Registro</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Restaurante</th><th>Plan</th><th>Instancia</th><th>Estado</th><th>Usuarios</th><th>Saldo</th><th>Próx. pago</th><th>Registro</th><th>Acciones</th></tr></thead>
           <tbody>
             {filtered.map((r) => (
               <tr key={r.id}>
@@ -486,6 +486,15 @@ function Restaurants({
                   <div style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>{r.email}</div>
                 </td>
                 <td><Badge type={planColor(r.plan, planConfigs)}>{planLabel(r.plan, planConfigs)}</Badge></td>
+                <td>
+                  {r.deployUrl ? (
+                    <a href={r.deployUrl} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: "4px", textDecoration: "none" }}>
+                      <Badge type="active">Creada</Badge>
+                    </a>
+                  ) : (
+                    <Badge type="muted">Sin crear</Badge>
+                  )}
+                </td>
                 <td><Badge type={STATUS_COLORS[r.status]}>{STATUS_LABELS[r.status]}</Badge></td>
                 <td><span style={{ fontWeight: 600 }}>{r.users}</span><span style={{ color: "var(--text-muted)" }}>/{r.maxUsers}</span></td>
                 <td style={{ color: r.balance > 0 ? "#ef4444" : "var(--accent)", fontWeight: 700 }}>{r.balance > 0 ? `$${r.balance.toLocaleString()}` : "Al día"}</td>
@@ -518,13 +527,22 @@ function Restaurants({
               ["Saldo pendiente", selected.balance > 0 ? `$${selected.balance.toLocaleString()}` : "Al corriente"],
               ["Próximo pago", selected.nextPayment], ["Último pago", selected.lastPayment],
               ["Registrado", selected.registeredAt],
-              ["Instancia", selected.repoName ? `${selected.repoOwner}/${selected.repoName}` : "Sin aprovisionar"],
             ].map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)", fontSize: ".86rem" }}>
                 <span style={{ color: "var(--text-secondary)" }}>{k}</span>
                 <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{v}</span>
               </div>
             ))}
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)", fontSize: ".86rem" }}>
+              <span style={{ color: "var(--text-secondary)" }}>Instancia</span>
+              {selected.repoName ? (
+                <a href={selected.deployUrl} target="_blank" rel="noreferrer" style={{ fontWeight: 600, color: "var(--accent)" }}>
+                  {selected.repoOwner}/{selected.repoName} ↗
+                </a>
+              ) : (
+                <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>Sin aprovisionar</span>
+              )}
+            </div>
             <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
               {selected.status !== "maintenance" && (
                 <button className={`sa-btn${selected.status === "suspended" ? "" : " danger"}`} style={{ flex: 1 }} onClick={() => toggleStatus(selected)}>
