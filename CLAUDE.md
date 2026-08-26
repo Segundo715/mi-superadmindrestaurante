@@ -37,14 +37,15 @@ Panel monolítico para los dueños de NICHO (Jesús y Eloy). Permite:
 | `supabaseMiMenu` | `lib/supabaseMiMenu.ts` | mi-menu (proyecto propio) | Service role, BD propia del producto mi-menu |
 | `supabaseMiCard` | `lib/supabaseMiCard.ts` | mi-card (proyecto propio) | Service role, BD propia del producto mi-card — **cliente listo en código, pero el proyecto Supabase todavía no existe** (ver nota abajo) |
 
-Las variables `PORTALES_*`, `MIMENU_*` y `MICARD_*` **solo existen en Vercel** (`MIMENU_*` también está en `.env.local` para desarrollo local), no van todas en el mismo lugar.
+Las variables `PORTALES_*` **solo existen en Vercel**; `MIMENU_*` y `MICARD_*` están **también en `.env.local`** para desarrollo local, no van todas en el mismo lugar.
 
-> **2026-08-24 — separación de mi-card en curso, todavía no completada.** Hasta ahora mi-card compartía la BD principal con mi-proyecto (multi-tenant por `restaurant_id`, sin aislamiento real — riesgo #7 de `Documentacion/documentos/plan-multiproducto-y-flota-2026-08-21.md` §7.1). Se decidió separarlo con proyecto Supabase propio, igual que mi-menu. El código de este repo ya está listo (`lib/supabaseMiCard.ts`, `resolveTarget()` en `/api/save-flags` enruta `_micard` a esa BD **solo si `MICARD_SUPABASE_URL` está configurada**, si no cae a la BD principal como antes — cero riesgo de romper nada mientras el proyecto no exista). Falta, fuera de este repo:
-> 1. Crear el proyecto Supabase de mi-card (requiere acceso a la cuenta de Supabase).
-> 2. Poner `MICARD_SUPABASE_URL`/`MICARD_SERVICE_KEY` en Vercel (y `.env.local` para desarrollo).
-> 3. Migrar a mano la fila `settings.feature_flags_micard` de la BD principal → `settings.feature_flags` en la BD nueva de mi-card (el endpoint no migra datos existentes, solo cambia a dónde lee/escribe de ahí en adelante).
-> 4. Actualizar el repo de mi-card (no disponible desde aquí) para que sus tablas de negocio (`admins`, `employees`, `customers`, tarjetas, sellos — nombres reales sin confirmar) apunten a la BD nueva en vez de la principal, y migrar los datos de los clientes de mi-card que ya existan.
-> 5. Poner `supabase_project_ref` del nuevo proyecto en la fila `mi-card` de `sa_products`.
+> **2026-08-26 — separación de mi-card en curso, avanzó pero sigue sin completarse.** Hasta ahora mi-card compartía la BD principal con mi-proyecto (multi-tenant por `restaurant_id`, sin aislamiento real — riesgo #7 de `Documentacion/documentos/plan-multiproducto-y-flota-2026-08-21.md` §7.1). Estado real:
+> 1. ✅ Proyecto Supabase de mi-card creado (`bkwsinjckqupawckfpyu.supabase.co`, org "mi-carsegundo").
+> 2. ✅ `MICARD_SUPABASE_URL`/`MICARD_SERVICE_KEY` en `.env.local` (desarrollo). ⬜ Falta ponerlas también en Vercel (producción) — hasta entonces `resolveTarget()` en `/api/save-flags` sigue cayendo a la BD principal para `_micard`, sin romper nada.
+> 3. ⬜ Falta correr `CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);` en el SQL Editor del proyecto nuevo de mi-card — está vacío, sin esa tabla ni las flags ni nada más puede leerse/escribirse ahí todavía.
+> 4. ⬜ Falta migrar a mano la fila `settings.feature_flags_micard` de la BD principal → `settings.feature_flags` en la BD nueva de mi-card (el endpoint no migra datos existentes, solo cambia a dónde lee/escribe de ahí en adelante).
+> 5. ⬜ Falta actualizar el repo `Segundo715/mi-card` para que sus tablas de negocio (`admins`, `employees`, `customers`, tarjetas, sellos) apunten a la BD nueva en vez de la principal, y migrar los datos de los clientes de mi-card que ya existan.
+> 6. ⬜ Falta poner `supabase_project_ref` (`bkwsinjckqupawckfpyu`) en la fila `mi-card` de `sa_products`.
 
 ### Autenticación
 
@@ -86,8 +87,8 @@ Todas en BD principal con prefijo `sa_`: `sa_restaurants`, `sa_audit_log`, `sa_d
 | `PORTALES_SERVICE_KEY` | ✅ para portales | **Solo Vercel** |
 | `MIMENU_SUPABASE_URL` | ✅ para mi-menu | `.env.local` + Vercel |
 | `MIMENU_SERVICE_KEY` | ✅ para mi-menu | `.env.local` + Vercel |
-| `MICARD_SUPABASE_URL` | Para separar mi-card (pendiente, ver nota arriba) | `.env.local` + Vercel |
-| `MICARD_SERVICE_KEY` | Para separar mi-card (pendiente, ver nota arriba) | `.env.local` + Vercel |
+| `MICARD_SUPABASE_URL` | Para separar mi-card (ver nota arriba) | ✅ `.env.local` · ⬜ falta en Vercel |
+| `MICARD_SERVICE_KEY` | Para separar mi-card (ver nota arriba) | ✅ `.env.local` · ⬜ falta en Vercel |
 | `ADMIN_SECRET` | ✅ | Compartido con mi-proyecto (demo proxy) |
 | `NICHO_REGISTER_KEY` | ✅ | Solo Vercel |
 | `VERCEL_TOKEN` | Para monitoreo de flota | **Solo Vercel** — access token del team de NICHO |
@@ -100,11 +101,12 @@ Las 5 variables de flota son opcionales: si faltan, el monitoreo sigue funcionan
 
 ## Restricciones importantes
 
-- El dashboard es un componente monolítico `SuperAdmin.tsx` (~2242 líneas). No fragmentar sin razón.
+- El dashboard es un componente monolítico `SuperAdmin.tsx` (~3100 líneas — creció bastante con Flota/Parches/Aprovisionamiento, ver más abajo). No fragmentar sin razón.
 - `mysql2` está en package.json pero **no se usa** — no eliminar sin confirmar.
 - Si se agrega una vista nueva, actualizar el union type `View` en `SuperAdmin.tsx` y agregar la opción al sidebar.
 - Las APIs de restaurantes llaman automáticamente `POST /api/audit` después de cada mutación importante.
 - `supabasePortales` solo debe usarse en: `api/save-flags`, `api/superadmin/tickets`, `api/superadmin/revenue`.
+- Eliminar un restaurante (botón "Eliminar" en el detalle, `DELETE /api/superadmin/restaurants/[id]`) **solo borra el registro del superadmin** — no borra la instancia real (repo/deploy) si la tenía aprovisionada; eso se hace a mano en GitHub/Vercel.
 
 ## Catálogo multi-producto, flota y parches
 
@@ -145,6 +147,7 @@ Los 3 están marcados como **"Template repository"** en GitHub (`is_template: tr
 
 ## Notas de contexto (sesiones previas)
 
+- **2026-08-24/26:** sesión grande — catálogo multi-producto, monitoreo de flota, historial de parches, cambio de plan/producto con rollback, y aprovisionamiento automático de instancias (repo + deploy) por cliente. De paso: separó mi-menu a su propio repo, avanzó (no terminó) la separación de mi-card a su propia BD, corrigió 2 bugs de persistencia preexistentes (plan y mantenimiento no se guardaban), y un bug que hubiera tumbado `/api/save-flags` para **todos** los productos en el próximo deploy (`createClient('','')` lanza en seco si faltan `MICARD_SUPABASE_URL`/`MICARD_SERVICE_KEY`, y esas no están en Vercel todavía — arreglado con un placeholder que evita el crash). Migración SQL de esta sesión: `Documentacion/sql/migraciones/2026-08-21-multiproducto-y-flota.sql` — confirmar que ya se corrió antes de asumir que el catálogo de planes tiene datos.
 - **2026-06-28:** restaurantes existentes tenían `restaurant_id='default'` en sus datos. Causa: env var `NEXT_PUBLIC_RESTAURANT_ID` no estaba configurada al crear los datos. Solución: PATCH masivo a todos los registros de las tablas `admins`, `employees`, `customers`, `menu_items`, `recipes`.
 - Los colores de portales son `#E8912A` (naranja). NICHO usa `#B90F45` (rosa/guinda). El sync de GitHub Actions tiene una lista de exclusiones para evitar sobreescribir los archivos de branding de portales.
 - La BD de portales (`qmtsetcqnovcahuimkvg`) tiene sus propias tablas `sa_tickets` y `settings`. Cualquier flag nuevo para portales debe ir en esa BD.

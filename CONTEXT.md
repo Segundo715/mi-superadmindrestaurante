@@ -4,7 +4,7 @@
 
 Panel de control global de la plataforma **NICHO**. Desde aquí el Super Admin (Jesús o Eloy) gestiona todos los restaurantes clientes: activa/desactiva módulos, administra planes y pagos, controla permisos por rol, revisa auditoría y configura seguridad.
 
-Solo existe **un restaurante real conectado**: `r1 = Nicho Restaurant`, que tiene su app real en `mi-proyecto`. Los demás restaurantes en la UI son datos de demostración (seed data en memoria).
+> ⚠️ **Desactualizado (corregido 2026-08-26):** este archivo decía "solo existe un restaurante real, el resto es seed en memoria" y "sin persistencia de restaurants/billing" — ninguna de las dos es cierta desde hace tiempo. Los restaurantes, planes, pagos y todo lo demás **sí persisten en Supabase** (tabla `sa_restaurants` y las demás `sa_*`), y hay varios restaurantes reales en producción, no solo `r1`. Ver `CLAUDE.md` para el estado real y actualizado — es la fuente de verdad, este archivo puede seguir teniendo otras cosas desactualizadas que no se revisaron línea por línea.
 
 ## Stack tecnológico
 
@@ -170,12 +170,13 @@ Todos los datos excepto los flags reales están en memoria (no en Supabase):
 
 ## Variables de entorno
 
-```
-NEXT_PUBLIC_SUPABASE_URL=       # URL del proyecto Supabase (misma que mi-proyecto)
-NEXT_PUBLIC_SUPABASE_ANON_KEY=  # Clave anónima de Supabase
-```
+Lista completa y actualizada en `CLAUDE.md` (§ "Variables de entorno críticas") — son muchas más
+de las 2 de aquí abajo (Supabase principal + portales + mi-menu + mi-card, tokens de GitHub/Vercel
+para flota y aprovisionamiento, `ADMIN_SECRET`, etc.). No duplicar la lista aquí para no
+desincronizarla otra vez.
 
-No hay `ADMIN_SECRET` aquí — la autenticación usa SHA-256 puro con salt hardcodeado.
+La autenticación del login SÍ usa SHA-256 con salt hardcodeado (eso sigue siendo cierto), pero
+`ADMIN_SECRET` **sí existe** en este proyecto — lo usa el proxy de demo, compartido con mi-proyecto.
 
 ---
 
@@ -199,7 +200,6 @@ Dark theme con CSS variables. Todas las clases usan el prefijo `.sa-`:
 ## Notas de arquitectura
 
 - **Sin Redux/Zustand**: todo el estado es React hooks (`useState`, `useCallback`, `useEffect`)
-- **Componente monolítico**: las 15 vistas están en un solo archivo para facilitar el desarrollo inicial; candidato a refactorizar
-- **Sin persistencia de restaurants/billing**: los cambios a restaurantes, planes y pagos solo existen en memoria durante la sesión
-- **Solo flags y permisos persisten** en Supabase vía `/api/save-flags`
+- **Componente monolítico**: 16 vistas en un solo archivo (`SuperAdmin.tsx`, ~3100 líneas) — a propósito, ver CLAUDE.md ("no fragmentar sin razón")
+- **Todo persiste en Supabase**: restaurantes, planes, pagos, flags, permisos, auditoría, flota, parches — no solo flags/permisos como decía antes esta línea. Cada vista hace `fetch`/`PATCH` a su endpoint en `/api/superadmin/*`.
 - **ngrok habilitado** en `next.config.ts` para desarrollo local con túnel
