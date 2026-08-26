@@ -498,6 +498,7 @@ function Restaurants({
                         {r.status === "suspended" ? "Activar" : "Suspender"}
                       </button>
                     )}
+                    <button className="sa-btn sm danger" onClick={() => setDeleteTarget(r)} title="Eliminar restaurante"><Icon name="trash" size={14} /></button>
                   </div>
                 </td>
               </tr>
