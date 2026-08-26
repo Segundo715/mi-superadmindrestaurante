@@ -116,3 +116,11 @@ CLAUDE.md,app/superadmin/components/SuperAdmin.tsx
 CLAUDE.md,vercel.json
 
 ---
+
+## 2026-08-26 — Wednesday
+
+### 11:49 AM — main
+**feat: botón de eliminar directo en la fila de la tabla de Restaurantes**
+app/superadmin/components/SuperAdmin.tsx
+
+---
