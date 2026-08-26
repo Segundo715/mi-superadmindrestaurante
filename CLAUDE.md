@@ -134,7 +134,10 @@ Los 3 están marcados como **"Template repository"** en GitHub (`is_template: tr
 
 ### Aprovisionamiento de instancias nuevas
 
-`POST /api/superadmin/provision-client` (`dryRun:true` por default) genera el repo del cliente desde la plantilla de su producto y crea su proyecto en Vercel conectado a ese repo, usando `lib/githubProvision.ts` + `lib/vercelProvision.ts`. Actualiza `sa_restaurants.repo_owner/repo_name/repo_url/deploy_url/vercel_project_id` y asigna `restaurant_id` si el restaurante no tenía uno. Botón "Aprovisionar instancia" en el detalle de un restaurante en `Restaurants` (`SuperAdmin.tsx`).
+`POST /api/superadmin/provision-client` (`dryRun:true` por default) genera el repo del cliente desde la plantilla de su producto y crea su proyecto en Vercel conectado a ese repo, usando `lib/githubProvision.ts` + `lib/vercelProvision.ts`. Actualiza `sa_restaurants.repo_owner/repo_name/repo_url/deploy_url/vercel_project_id` y asigna `restaurant_id` si el restaurante no tenía uno.
+
+- **`Restaurants.addRestaurant()` ya lo dispara solo** (2026-08-26): "Registrar restaurante" hace el alta y, en la misma acción (`dryRun:false` directo, sin paso intermedio), crea el repo + deploy del producto elegido. El modal se queda abierto mostrando "Creando instancia…" hasta que termina.
+- Si el aprovisionamiento automático falla (tokens sin configurar, nombre de repo repetido, etc.), el restaurante **igual queda registrado** — no se pierde el alta — y aparece el botón "Aprovisionar instancia" en su detalle (`Restaurants`, `SuperAdmin.tsx`) para reintentar a mano. Ese botón es el único camino para restaurantes dados de alta antes de este cambio.
 
 **Hueco conocido:** no tenemos guardada la ANON key de Supabase de mi-menu (solo la `MIMENU_SERVICE_KEY`, que mi-menu no usa — su código pide la anon key). El endpoint crea la instancia igual pero lo reporta como advertencia; hay que agregar esa variable a mano en el proyecto de Vercel del cliente después.
 

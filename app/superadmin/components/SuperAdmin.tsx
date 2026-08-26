@@ -390,6 +390,7 @@ function Restaurants({
   const [newEmail, setNewEmail] = useState("");
   const sellablePlans = planConfigs.filter((p) => p.active);
   const [newPlan, setNewPlan] = useState<Plan>("trial");
+  const [registering, setRegistering] = useState(false);
 
   const filtered = restaurants.filter((r) => {
     const s = r.name.toLowerCase().includes(search.toLowerCase());
@@ -420,15 +421,36 @@ function Restaurants({
     setSelected(null);
   };
 
+  // Registra el restaurante y, en la misma acción, dispara el aprovisionamiento real (repo +
+  // deploy) del producto elegido — antes eran dos pasos (registrar, y luego ir al detalle a
+  // apretar "Aprovisionar instancia" aparte). Si el aprovisionamiento falla (ej. faltan
+  // GITHUB_TOKEN/VERCEL_TOKEN todavía), el restaurante se queda registrado igual — no se pierde
+  // el alta — y se puede reintentar desde su detalle con el mismo botón de antes.
   const addRestaurant = async () => {
     if (!newName.trim() || !newEmail.trim()) { showToast("Completa nombre y correo", "error"); return; }
-    const res = await fetch('/api/superadmin/restaurants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newName.trim(), email: newEmail.trim(), plan: newPlan }) })
-    if (!res.ok) { showToast("Error al registrar restaurante", "error"); return; }
+    setRegistering(true);
+    const res = await fetch('/api/superadmin/restaurants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newName.trim(), email: newEmail.trim(), plan: newPlan }) }).catch(() => null);
+    if (!res || !res.ok) { setRegistering(false); showToast("Error al registrar restaurante", "error"); return; }
     const newR: Restaurant = await res.json()
     setRestaurants((prev) => [...prev, newR]);
     addAudit("Restaurante registrado", `${newName} · Plan ${planLabel(newPlan, planConfigs)}`, "create", newName);
-    showToast(`${newName} registrado exitosamente`);
+    // El modal se queda abierto (con el botón en "Creando instancia…") hasta que el
+    // aprovisionamiento termine, para que se vea como una sola acción de principio a fin.
+
+    const provRes = await fetch('/api/superadmin/provision-client', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restaurantId: newR.id, dryRun: false }),
+    }).catch(() => null);
+    const provData = await provRes?.json().catch(() => null);
+    setRegistering(false);
     setNewName(""); setNewEmail(""); setNewPlan("trial"); setShowNewForm(false);
+
+    if (provRes?.ok && provData?.ok) {
+      setRestaurants((prev) => prev.map((x) => x.id === newR.id ? { ...x, repoOwner: 'Segundo715', repoName: provData.repoUrl?.split('/').pop(), repoUrl: provData.repoUrl, deployUrl: provData.deployUrl } : x));
+      showToast(provData.warnings?.length ? `${newR.name} registrado y aprovisionado — revisa: ${provData.warnings[0]}` : `${newR.name} registrado y su instancia ya se está creando`);
+    } else {
+      showToast(`${newR.name} registrado, pero la instancia no se pudo crear (${provData?.error ?? "reintenta desde su detalle"})`, "error");
+    }
   };
 
   const fieldStyle = { width: "100%", background: "var(--bg-input)", border: "1px solid var(--border-light)", borderRadius: "8px", padding: "9px 12px", color: "var(--text-primary)", fontSize: ".86rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box" as const, marginBottom: "12px" };
@@ -592,7 +614,9 @@ function Restaurants({
             </select>
           )}
           <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
-            <button className="sa-btn primary" style={{ flex: 1 }} onClick={addRestaurant} disabled={sellablePlans.length === 0}><Icon name="check-circle" size={16} /> Registrar</button>
+            <button className="sa-btn primary" style={{ flex: 1 }} onClick={addRestaurant} disabled={sellablePlans.length === 0 || registering}>
+              <Icon name="check-circle" size={16} /> {registering ? "Creando instancia…" : "Registrar"}
+            </button>
             <button className="sa-btn" style={{ flex: 1 }} onClick={() => setShowNewForm(false)}>Cancelar</button>
           </div>
         </Modal>
