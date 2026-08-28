@@ -148,3 +148,11 @@ app/superadmin/components/SuperAdmin.tsx
 app/sa-login/page.tsx
 
 ---
+
+## 2026-08-28 — Friday
+
+### 12:41 PM — main
+**feat: columna "Pago" separada de Plan en tabla de restaurantes**
+app/superadmin/components/SuperAdmin.tsx
+
+---
