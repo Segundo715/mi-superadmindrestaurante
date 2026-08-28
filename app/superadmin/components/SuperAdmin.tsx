@@ -194,6 +194,18 @@ function planColor(id: Plan, configs: PlanConfig[]): string {
 function planPrice(id: Plan, configs: PlanConfig[]): number {
   return configs.find((p) => p.id === id)?.price ?? 0;
 }
+// Los 6 planes de producto (mi-card/mi-menu/mi-proyecto × mensual/único) tienen su modalidad
+// embebida en el nombre (ej. "mi-card · Pago único", ver migración 2026-08-21) para que se lea
+// bien en el selector de planes. En la tabla de restaurantes eso se muestra en su propia celda,
+// así que aquí se separa: el badge de Plan solo muestra lo que va antes de " · ".
+function planBaseName(name: string): string {
+  return name.split(" · ")[0];
+}
+function billingModeLabel(mode?: "mensual" | "unico"): string {
+  if (mode === "unico") return "Pago único";
+  if (mode === "mensual") return "Mensual";
+  return "—";
+}
 const STATUS_LABELS: Record<Status, string> = { active: "Activo", suspended: "Suspendido", maintenance: "Mantenimiento" };
 const STATUS_COLORS: Record<Status, string> = { active: "active", suspended: "danger",     maintenance: "warning"       };
 const AUDIT_ICONS: Record<AuditType, IconName> = { create: "plus", update: "edit", delete: "trash", access: "eye", billing: "credit-card" };
@@ -477,7 +489,7 @@ function Restaurants({
 
       <div className="sa-card">
         <table className="sa-table">
-          <thead><tr><th>Restaurante</th><th>Plan</th><th>Instancia</th><th>Estado</th><th>Usuarios</th><th>Saldo</th><th>Próx. pago</th><th>Registro</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Restaurante</th><th>Plan</th><th>Pago</th><th>Instancia</th><th>Estado</th><th>Usuarios</th><th>Saldo</th><th>Próx. pago</th><th>Registro</th><th>Acciones</th></tr></thead>
           <tbody>
             {filtered.map((r) => (
               <tr key={r.id}>
@@ -485,7 +497,8 @@ function Restaurants({
                   <div style={{ fontWeight: 600 }}>{r.name}</div>
                   <div style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>{r.email}</div>
                 </td>
-                <td><Badge type={planColor(r.plan, planConfigs)}>{planLabel(r.plan, planConfigs)}</Badge></td>
+                <td><Badge type={planColor(r.plan, planConfigs)}>{planBaseName(planLabel(r.plan, planConfigs))}</Badge></td>
+                <td style={{ color: "var(--text-secondary)" }}>{billingModeLabel(r.billingMode ?? planConfigs.find((p) => p.id === r.plan)?.billingMode)}</td>
                 <td>
                   {r.deployUrl ? (
                     <a href={r.deployUrl} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: "4px", textDecoration: "none" }}>
