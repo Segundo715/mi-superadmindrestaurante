@@ -140,3 +140,11 @@ app/api/superadmin/restaurants/[id]/route.ts,app/superadmin/components/SuperAdmi
 app/superadmin/components/SuperAdmin.tsx
 
 ---
+
+## 2026-08-28 — Friday
+
+### 12:29 PM — main
+**feat: boton de mostrar/ocultar contraseña en login de superadmin**
+app/sa-login/page.tsx
+
+---
