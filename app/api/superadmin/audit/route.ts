@@ -3,6 +3,7 @@
 import { NextRequest } from 'next/server'
 import { verifySaSession } from '@/lib/saAuth'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
+import { logAudit } from '@/lib/audit'
 
 function toEntry(r: Record<string, unknown>) {
   const ts = new Date(r.ts as string)
@@ -28,14 +29,14 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   if (!await verifySaSession()) return Response.json({ error: 'No autorizado' }, { status: 401 })
   const body = await req.json()
-  const { data, error } = await supabase.from('sa_audit_log').insert({
-    user_name: body.user ?? 'superadmin',
+  // Antes insertaba a mano con un IP inventado ('187.xxx.12', nunca una IP real) — usa el helper
+  // compartido como todo lo demás que escribe en sa_audit_log; el frontend no lee la fila devuelta.
+  await logAudit({
+    user: body.user ?? 'superadmin',
     restaurant: body.restaurant ?? '—',
     action: body.action,
     details: body.details ?? '',
-    ip: '187.xxx.12',
     type: body.type ?? 'update',
-  }).select().single()
-  if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json(toEntry(data), { status: 201 })
+  })
+  return Response.json({ ok: true }, { status: 201 })
 }

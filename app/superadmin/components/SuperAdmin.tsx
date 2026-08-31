@@ -459,7 +459,7 @@ function Restaurants({
     setNewName(""); setNewEmail(""); setNewPlan("trial"); setShowNewForm(false);
 
     if (provRes?.ok && provData?.ok) {
-      setRestaurants((prev) => prev.map((x) => x.id === newR.id ? { ...x, repoOwner: 'Segundo715', repoName: provData.repoUrl?.split('/').pop(), repoUrl: provData.repoUrl, deployUrl: provData.deployUrl } : x));
+      setRestaurants((prev) => prev.map((x) => x.id === newR.id ? { ...x, repoOwner: 'Segundo715', repoName: provData.repoUrl?.split('/').pop(), repoUrl: provData.repoUrl, deployUrl: provData.deployUrl, restaurantId: provData.restaurantId } : x));
       showToast(provData.warnings?.length ? `${newR.name} registrado y aprovisionado — revisa: ${provData.warnings[0]}` : `${newR.name} registrado y su instancia ya se está creando`);
     } else {
       showToast(`${newR.name} registrado, pero la instancia no se pudo crear (${provData?.error ?? "reintenta desde su detalle"})`, "error");

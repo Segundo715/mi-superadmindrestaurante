@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server'
 import { verifySaSession } from '@/lib/saAuth'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { toRestaurant } from '@/lib/mapRestaurant'
+import { logAudit } from '@/lib/audit'
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   if (!await verifySaSession()) return Response.json({ error: 'No autorizado' }, { status: 401 })
@@ -49,8 +50,7 @@ export async function DELETE(_: NextRequest, ctx: { params: Promise<{ id: string
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
   if (before) {
-    await supabase.from('sa_audit_log').insert({
-      user_name: 'superadmin',
+    await logAudit({
       restaurant: before.name ?? '—',
       action: 'Restaurante eliminado',
       details: JSON.stringify(before),
