@@ -557,6 +557,11 @@ function Restaurants({
               )}
             </div>
             <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
+              {selected.deployUrl && (
+                <a className="sa-btn primary" style={{ flex: 1, textAlign: "center", textDecoration: "none" }} href={`${selected.deployUrl}/admin`} target="_blank" rel="noreferrer">
+                  <Icon name="eye" size={16} /> Ver panel del cliente
+                </a>
+              )}
               {selected.status !== "maintenance" && (
                 <button className={`sa-btn${selected.status === "suspended" ? "" : " danger"}`} style={{ flex: 1 }} onClick={() => toggleStatus(selected)}>
                   <Icon name={selected.status === "suspended" ? "check-circle" : "ban"} size={16} /> {selected.status === "suspended" ? "Reactivar" : "Suspender"}
