@@ -172,3 +172,11 @@ CLAUDE.md,CONTEXT.md,Documentacion/indice.md
 CLAUDE.md,app/api/cron/fleet-refresh/route.ts,app/api/demo-proxy/route.ts,app/api/save-flags/route.ts,app/api/superadmin/client-updates/route.ts,app/api/superadmin/discounts/route.ts,app/api/superadmin/provision-client/route.ts,app/api/superadmin/restaurants/route.ts
 
 ---
+
+## 2026-08-31 — Monday
+
+### 11:36 AM — main
+**fix: seguir corrigiendo hallazgos de baja severidad de la revisión**
+app/api/superadmin/audit/route.ts,app/api/superadmin/restaurants/[id]/route.ts,app/superadmin/components/SuperAdmin.tsx
+
+---
