@@ -196,3 +196,11 @@ lib/githubApi.ts
 app/superadmin/components/SuperAdmin.tsx
 
 ---
+
+## 2026-08-31 — Monday
+
+### 11:54 AM — main
+**docs: registrar revisión de código y botón "Ver panel del cliente"**
+CLAUDE.md,CONTEXT.md,Documentacion/indice.md
+
+---
