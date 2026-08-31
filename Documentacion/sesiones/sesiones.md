@@ -188,3 +188,11 @@ app/api/superadmin/audit/route.ts,app/api/superadmin/restaurants/[id]/route.ts,a
 lib/githubApi.ts
 
 ---
+
+## 2026-08-31 — Monday
+
+### 11:51 AM — main
+**feat: botón "Ver panel del cliente" en el detalle de un restaurante**
+app/superadmin/components/SuperAdmin.tsx
+
+---
