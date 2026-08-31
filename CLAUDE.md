@@ -141,15 +141,38 @@ Los 3 están marcados como **"Template repository"** en GitHub (`is_template: tr
 
 **Hueco conocido:** no tenemos guardada la ANON key de Supabase de mi-menu (solo la `MIMENU_SERVICE_KEY`, que mi-menu no usa — su código pide la anon key). El endpoint crea la instancia igual pero lo reporta como advertencia; hay que agregar esa variable a mano en el proyecto de Vercel del cliente después.
 
-**Variables de entorno para que esto funcione de verdad en producción (ninguna configurada todavía):**
+**Variables de entorno para que esto funcione de verdad en producción:** `GITHUB_TOKEN` y `VERCEL_TOKEN` **ya están configuradas en Vercel** (2026-08-26/28) con los permisos correctos (`GITHUB_TOKEN`: `Contents: Read and write` + `Administration: Write`; `VERCEL_TOKEN`: permiso de crear proyectos) — el aprovisionamiento automático ya corre de verdad en producción, no solo en dry-run. Verificado con un cliente real (`mi-card-jesus-*`): repo creado en GitHub, proyecto creado en Vercel, badge "Instancia: Creada" visible en la tabla de Restaurantes.
 
-| Variable | Dónde | Nota |
-|---|---|---|
-| `GITHUB_TOKEN` | Solo Vercel | **Ojo:** ya no es de solo lectura — ahora también lo usa el aprovisionamiento, necesita `Contents: Read and write` + `Administration: Write` (crear repos), no solo `Contents:Read` + `Metadata:Read` como se documentó para flota |
-| `VERCEL_TOKEN` | Solo Vercel | Igual que arriba: para flota basta con leer deployments, pero aprovisionar necesita permiso de **crear proyectos** |
+### Cómo saber si la instancia de un cliente se creó de verdad
+
+No se guarda ningún archivo en este repo ni en el servidor del superadmin — el "archivo del proyecto" vive por completo en dos lugares externos:
+1. **GitHub**: repo nuevo bajo `Segundo715` (`{producto}-{nombre-slug}-{id corto}`), copiado del repo plantilla del producto.
+2. **Vercel**: proyecto nuevo conectado a ese repo, con su propio deploy.
+
+Este repo solo guarda punteros a esas dos cosas (`sa_restaurants.repo_owner/repo_name/repo_url/deploy_url/vercel_project_id`). Para confirmar visualmente: columna **Instancia** en la tabla de Restaurantes — badge verde "Creada" (clicable, va directo al deploy) si se creó, badge gris "Sin crear" si no. Un toast también avisa al momento de registrar si falló y por qué.
+
+## Pendiente: URL compartida para clientes mensuales (no copiar repo/deploy)
+
+**Estado: solo exploración, sin código escrito todavía (sesión 2026-08-28, pausada).** El usuario quiere que, a diferencia de los clientes `unico` (que sí reciben una copia completa vía `provision-client`, ver arriba), los clientes `mensual` **no generen un repo/deploy nuevo** — que en vez de eso se les asigne solo una URL nueva sobre un deploy ya existente y compartido por producto.
+
+**Hallazgo clave que reduce el alcance real:** la base de datos de cada producto **ya es multi-tenant** — las tablas (`admins`, `employees`, `customers`, etc.) ya están particionadas por columna `restaurant_id` (confirmado por el bug de 2026-06-28, donde faltaba esa partición y todo caía en `'default'`). Lo único que falta es la **resolución en tiempo de ejecución** de qué `restaurant_id` usar por request — hoy es una constante de build (`const RID = process.env.NEXT_PUBLIC_RESTAURANT_ID || 'default'`, uno por archivo, ver abajo), no algo que se pueda cambiar sin recompilar. No hace falta rediseñar el esquema de datos, solo cómo se resuelve `RID`.
+
+**Exploración hecha (solo lectura, clones locales descartados después):**
+- `Segundo715/mi-proyecto`: el patrón `NEXT_PUBLIC_RESTAURANT_ID` está encapsulado en **14 archivos** `lib/*Db.ts` (~69 funciones exportadas en total) + 3 rutas de `app/api` (tickets, permissions, auth) — no está esparcido en las ~89 rutas de `app/api`. `middleware.ts` solo hace auth de sesión (`/admin`, `/employee`), no resuelve tenant por hostname.
+- `Segundo715/mi-menu`: código idéntico a mi-proyecto (mismo hallazgo).
+- `Segundo715/mi-card`: **solo 4 archivos** (`lib/db.ts`=12 funciones, `lib/loyaltyDb.ts`=9, `lib/adminDb.ts`=6, `lib/settingsDb.ts`=3 → 30 funciones), 11 rutas de `app/api`. Mismo patrón `middleware.ts` (solo auth de `/admin`, sin tenant routing). Es el candidato obvio para pilotear el mecanismo antes de tocar mi-proyecto/mi-menu (mucho menor superficie).
+
+**Mecanismo propuesto (no implementado):** dominio wildcard por producto (ej. `*.mi-card.tudominio.com`) → un deploy compartido en Vercel + una tabla `domain → restaurant_id` en la BD propia de cada producto, consultada en `middleware.ts` para inyectar el `restaurant_id` resuelto (ej. vía header) y que los `lib/*Db.ts` lean ese valor por request en vez de la constante de módulo — con fallback a la env var actual para no romper los deploys `unico` existentes (esos siguen siendo dedicados, sin cambios).
+
+**Bloqueadores reales, no resueltos:**
+1. **Dominio propio.** No hay uno comprado todavía — el usuario buscó opciones en Vercel Domains (variaciones de "Jesospechoso") sin encontrar una disponible ni confirmar compra. Sin dominio no hay wildcard posible.
+2. **Alcance de la primera pasada.** Recomendado: pilotear en mi-card solo (menor riesgo, ya tiene BD propia), replicar a mi-menu/mi-proyecto después de validarlo con un cliente real — pendiente de confirmar con el usuario.
+
+Antes de escribir código para esto, retomar en Plan Mode: resolver los dos bloqueadores de arriba con el usuario, después diseñar la tabla `domain_map`, los cambios de `middleware.ts` + `lib/*Db.ts` en el(los) repo(s) elegido(s), y la lógica nueva en `POST /api/superadmin/provision-client` para que `billing_mode === 'mensual'` inserte una fila en `domain_map` en vez de llamar a `createClientRepo`/`createClientProject`.
 
 ## Notas de contexto (sesiones previas)
 
+- **2026-08-28:** confirmado con un cliente real (`mi-card-jesus-*`) que el aprovisionamiento automático de instancias funciona en producción de punta a punta (tokens ya configurados desde la sesión anterior). Dos ajustes de UI chicos: botón de mostrar/ocultar contraseña (ojito) en `/sa-login`, y columna "Pago" separada del badge de Plan en la tabla de Restaurantes (antes el nombre del plan y la modalidad — "mi-card · Pago único" — venían juntos en el mismo badge y se veía apretado). Se empezó a explorar (sin código, ver sección "Pendiente: URL compartida para clientes mensuales" arriba) cómo evitar que los clientes `mensual` reciban una copia completa de repo/deploy — quedó pausado esperando que el usuario resuelva el dominio propio y confirme el alcance del piloto.
 - **2026-08-24/26:** sesión grande — catálogo multi-producto, monitoreo de flota, historial de parches, cambio de plan/producto con rollback, y aprovisionamiento automático de instancias (repo + deploy) por cliente. De paso: separó mi-menu a su propio repo, avanzó (no terminó) la separación de mi-card a su propia BD, corrigió 2 bugs de persistencia preexistentes (plan y mantenimiento no se guardaban), y un bug que hubiera tumbado `/api/save-flags` para **todos** los productos en el próximo deploy (`createClient('','')` lanza en seco si faltan `MICARD_SUPABASE_URL`/`MICARD_SERVICE_KEY`, y esas no están en Vercel todavía — arreglado con un placeholder que evita el crash). Migración SQL de esta sesión: `Documentacion/sql/migraciones/2026-08-21-multiproducto-y-flota.sql` — confirmar que ya se corrió antes de asumir que el catálogo de planes tiene datos.
 - **2026-06-28:** restaurantes existentes tenían `restaurant_id='default'` en sus datos. Causa: env var `NEXT_PUBLIC_RESTAURANT_ID` no estaba configurada al crear los datos. Solución: PATCH masivo a todos los registros de las tablas `admins`, `employees`, `customers`, `menu_items`, `recipes`.
 - Los colores de portales son `#E8912A` (naranja). NICHO usa `#B90F45` (rosa/guinda). El sync de GitHub Actions tiene una lista de exclusiones para evitar sobreescribir los archivos de branding de portales.

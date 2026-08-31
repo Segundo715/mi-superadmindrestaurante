@@ -5,6 +5,8 @@
 Panel de control global de la plataforma **NICHO**. Desde aquí el Super Admin (Jesús o Eloy) gestiona todos los restaurantes clientes: activa/desactiva módulos, administra planes y pagos, controla permisos por rol, revisa auditoría y configura seguridad.
 
 > ⚠️ **Desactualizado (corregido 2026-08-26):** este archivo decía "solo existe un restaurante real, el resto es seed en memoria" y "sin persistencia de restaurants/billing" — ninguna de las dos es cierta desde hace tiempo. Los restaurantes, planes, pagos y todo lo demás **sí persisten en Supabase** (tabla `sa_restaurants` y las demás `sa_*`), y hay varios restaurantes reales en producción, no solo `r1`. Ver `CLAUDE.md` para el estado real y actualizado — es la fuente de verdad, este archivo puede seguir teniendo otras cosas desactualizadas que no se revisaron línea por línea.
+>
+> **2026-08-28:** el aprovisionamiento automático de instancias (repo + deploy por cliente) ya está verificado funcionando en producción con un cliente real. Hay trabajo de arquitectura pendiente y solo explorado (no implementado) para que los clientes de plan `mensual` no reciban una copia completa sino solo una URL sobre un deploy compartido — ver la sección "Pendiente: URL compartida para clientes mensuales" en `CLAUDE.md`.
 
 ## Stack tecnológico
 
