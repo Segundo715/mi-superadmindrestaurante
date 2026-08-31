@@ -156,3 +156,11 @@ app/sa-login/page.tsx
 app/superadmin/components/SuperAdmin.tsx
 
 ---
+
+## 2026-08-31 — Monday
+
+### 11:01 AM — main
+**docs: actualizar CLAUDE.md/CONTEXT.md con estado 2026-08-28**
+CLAUDE.md,CONTEXT.md,Documentacion/indice.md
+
+---
