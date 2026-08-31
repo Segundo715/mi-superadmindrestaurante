@@ -180,3 +180,11 @@ CLAUDE.md,app/api/cron/fleet-refresh/route.ts,app/api/demo-proxy/route.ts,app/ap
 app/api/superadmin/audit/route.ts,app/api/superadmin/restaurants/[id]/route.ts,app/superadmin/components/SuperAdmin.tsx
 
 ---
+
+## 2026-08-31 — Monday
+
+### 11:37 AM — main
+**refactor: eliminar compareBranches() sin uso en lib/githubApi.ts**
+lib/githubApi.ts
+
+---
