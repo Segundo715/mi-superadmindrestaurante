@@ -9,6 +9,8 @@ Panel de control global de la plataforma **NICHO**. Desde aquí el Super Admin (
 > **2026-08-28:** el aprovisionamiento automático de instancias (repo + deploy por cliente) ya está verificado funcionando en producción con un cliente real. Hay trabajo de arquitectura pendiente y solo explorado (no implementado) para que los clientes de plan `mensual` no reciban una copia completa sino solo una URL sobre un deploy compartido — ver la sección "Pendiente: URL compartida para clientes mensuales" en `CLAUDE.md`.
 >
 > **2026-08-31:** revisión completa de código con 12 correcciones aplicadas (incluye un hallazgo crítico de seguridad en `/api/demo-proxy`, ya corregido) y nuevo botón "Ver panel del cliente" en el detalle de un restaurante — ver `CLAUDE.md` para el detalle completo.
+>
+> **2026-08-31 (cont.):** iconos SVG planos en `/sa-login` (ya no quedan emojis en el dashboard) y un fix de rendimiento en `/card` de **mi-card** (repo hermano) — el logo del negocio ya no tarda en aparecer. Aplicado en la plantilla y en la instancia real ya provisionada; detalle completo en `CLAUDE.md`.
 
 ## Stack tecnológico
 
