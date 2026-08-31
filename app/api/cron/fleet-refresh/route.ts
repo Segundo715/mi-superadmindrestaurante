@@ -53,6 +53,23 @@ export async function GET(req: NextRequest) {
 
   const rows = results.filter((r) => r.status === 'fulfilled').map((r) => (r as PromiseFulfilledResult<Record<string, unknown>>).value)
 
+  // Sin esto, un restaurante cuyo chequeo lanza una excepción real (no un simple 'error' de salud)
+  // desaparecía sin dejar rastro — y como el lote siempre prioriza los menos-recientemente-
+  // chequeados, uno que siempre truena quedaba primero en cada corrida y caía de la flota para
+  // siempre en silencio.
+  const failedRows = results
+    .map((r, i) => ({ r, restaurant: batch[i] }))
+    .filter(({ r }) => r.status === 'rejected') as { r: PromiseRejectedResult; restaurant: (typeof batch)[number] }[]
+  if (failedRows.length > 0) {
+    await logAuditMany(failedRows.map(({ r, restaurant }) => ({
+      user: 'cron',
+      restaurant: restaurant.name,
+      action: 'Chequeo de flota falló',
+      details: r.reason instanceof Error ? r.reason.message : String(r.reason),
+      type: 'access' as const,
+    })))
+  }
+
   if (rows.length > 0) {
     await supabase.from('sa_fleet_status').upsert(rows, { onConflict: 'restaurant_pk' })
   }
@@ -74,5 +91,5 @@ export async function GET(req: NextRequest) {
   const counts = { ok: 0, warn: 0, error: 0, unknown: 0 }
   for (const r of rows) counts[(r.health as keyof typeof counts) ?? 'unknown']++
 
-  return Response.json({ checked: rows.length, ...counts, ms: Date.now() - started })
+  return Response.json({ checked: rows.length, failed: failedRows.length, ...counts, ms: Date.now() - started })
 }

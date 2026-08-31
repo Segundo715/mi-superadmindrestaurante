@@ -28,6 +28,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   if (!await verifySaSession()) return Response.json({ error: 'No autorizado' }, { status: 401 })
   const body = await req.json()
+  if (!body.code?.trim()) return Response.json({ error: 'Falta code' }, { status: 400 })
   const { data, error } = await supabase.from('sa_discounts').insert({
     code: body.code.trim().toUpperCase(),
     discount: body.discount,

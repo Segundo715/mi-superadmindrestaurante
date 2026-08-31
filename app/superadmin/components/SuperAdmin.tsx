@@ -1138,22 +1138,33 @@ function Billing({
     showToast(`Pago de $${paid.toLocaleString()} registrado para ${r.name}`);
   };
 
-  // Cambia el plan y ajusta maxUsers al límite del nuevo plan.
+  // Cambia el plan usando /api/superadmin/upgrade-plan (no un PATCH parcial) — así
+  // updates_until/support_until/subscription_status/previous_plan se recalculan contra el plan
+  // destino igual que en Plans.applyAssign; un PATCH parcial aquí dejaba esos campos desactualizados
+  // (ej. mensual→único no recalculaba updates_until, así que client-updates seguía mandando parches
+  // gratis según la ventana vieja).
   const applyPlanChange = async () => {
     if (!changePlan) return;
-    const prevLabel = planLabel(changePlan.plan, planConfigs);
     const cfg = planConfigs.find((p) => p.id === selectedPlan);
     if (!cfg) { showToast("Ese plan ya no existe en el catálogo", "error"); return; }
     const target = changePlan;
     setChangePlan(null);
-    const res = await fetch(`/api/superadmin/restaurants/${target.id}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan: selectedPlan, maxUsers: cfg.maxUsers, productId: cfg.productId, billingMode: cfg.billingMode }),
+    // Sin acknowledgeDataLoss: si resulta ser un downgrade de producto, el endpoint lo rechaza —
+    // para eso usar el modal "Cambiar plan/producto" del detalle del restaurante, que sí tiene la
+    // vista previa de qué se pierde.
+    const res = await fetch('/api/superadmin/upgrade-plan', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restaurantId: target.id, targetPlanId: selectedPlan, dryRun: false }),
     }).catch(() => null);
-    if (!res || !res.ok) { showToast("No se pudo guardar el cambio de plan — reintenta", "error"); return; }
-    setRestaurants((p) => p.map((x) => x.id === target.id ? { ...x, plan: selectedPlan, maxUsers: cfg.maxUsers, productId: cfg.productId, billingMode: cfg.billingMode } : x));
-    addAudit("Plan actualizado", `${target.name}: ${prevLabel} → ${cfg.name}`, "billing", target.name);
-    showToast(`Plan de ${target.name} actualizado a ${cfg.name}`);
+    const data = await res?.json().catch(() => null);
+    if (!res || !res.ok || !data?.ok) {
+      const hint = data?.hint ? ` ${data.hint}` : "";
+      showToast(`${data?.error ?? "No se pudo guardar el cambio de plan"}${hint}`, "error");
+      return;
+    }
+    setRestaurants((p) => p.map((x) => x.id === target.id ? { ...x, plan: selectedPlan, productId: cfg.productId, billingMode: cfg.billingMode, maxUsers: data.changes?.maxUsers ?? x.maxUsers } : x));
+    addAudit("Plan actualizado", `${target.name}: ${planLabel(changePlan.plan, planConfigs)} → ${cfg.name}`, "billing", target.name);
+    showToast(data.warnings?.length ? `Plan actualizado — revisa: ${data.warnings[0]}` : `Plan de ${target.name} actualizado a ${cfg.name}`);
   };
 
   const total = restaurants.reduce((s, r) => s + r.balance, 0);

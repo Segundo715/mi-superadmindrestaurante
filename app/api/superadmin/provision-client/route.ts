@@ -57,11 +57,14 @@ function buildEnvVars(productId: string, restaurantId: string): EnvBuild {
   }
 
   // mi-menu y mi-proyecto comparten el mismo código (mi-menu se generó copiando mi-proyecto el
-  // 2026-08-24) — mismas variables, distinta Supabase.
+  // 2026-08-24) — mismas variables, distinta Supabase. mi-menu usa MIMENU_SUPABASE_ANON_KEY si está
+  // configurada (falta agregarla — ver CLAUDE.md); NO se puede "crear igual y avisar" como se pensó
+  // antes: createClient(url, '') lanza igual que createClient('',''), verificado en tiempo de
+  // ejecución — un deploy sin esta key truena al arrancar, no queda simplemente degradado.
   const url = productId === 'mi-menu' ? process.env.MIMENU_SUPABASE_URL : process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anonKey = productId === 'mi-menu' ? undefined : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const anonKey = productId === 'mi-menu' ? process.env.MIMENU_SUPABASE_ANON_KEY : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url) warnings.push(`Falta la URL de Supabase de ${productId} — el deploy no podrá conectarse a su base de datos hasta que se agregue.`)
-  if (!anonKey) warnings.push(`No tenemos guardada la ANON key de Supabase de ${productId} (solo la secret key, que este producto no usa) — hay que agregarla a mano en Vercel después de crear el proyecto.`)
+  if (!anonKey) warnings.push(`Falta la ANON key de Supabase de ${productId} — sin ella el deploy truena al arrancar (createClient con key vacía lanza), así que el aprovisionamiento se bloquea hasta que se agregue.`)
 
   return {
     vars: [

@@ -87,6 +87,7 @@ Todas en BD principal con prefijo `sa_`: `sa_restaurants`, `sa_audit_log`, `sa_d
 | `PORTALES_SERVICE_KEY` | ✅ para portales | **Solo Vercel** |
 | `MIMENU_SUPABASE_URL` | ✅ para mi-menu | `.env.local` + Vercel |
 | `MIMENU_SERVICE_KEY` | ✅ para mi-menu | `.env.local` + Vercel |
+| `MIMENU_SUPABASE_ANON_KEY` | ✅ para **aprovisionar** clientes de mi-menu (ver nota abajo) | ⬜ falta en ambos — sacarla del dashboard de Supabase del proyecto de mi-menu |
 | `MICARD_SUPABASE_URL` | Para separar mi-card (ver nota arriba) | ✅ `.env.local` · ⬜ falta en Vercel |
 | `MICARD_SERVICE_KEY` | Para separar mi-card (ver nota arriba) | ✅ `.env.local` · ⬜ falta en Vercel |
 | `ADMIN_SECRET` | ✅ | Compartido con mi-proyecto (demo proxy) |
@@ -139,7 +140,7 @@ Los 3 están marcados como **"Template repository"** en GitHub (`is_template: tr
 - **`Restaurants.addRestaurant()` ya lo dispara solo** (2026-08-26): "Registrar restaurante" hace el alta y, en la misma acción (`dryRun:false` directo, sin paso intermedio), crea el repo + deploy del producto elegido. El modal se queda abierto mostrando "Creando instancia…" hasta que termina.
 - Si el aprovisionamiento automático falla (tokens sin configurar, nombre de repo repetido, etc.), el restaurante **igual queda registrado** — no se pierde el alta — y aparece el botón "Aprovisionar instancia" en su detalle (`Restaurants`, `SuperAdmin.tsx`) para reintentar a mano. Ese botón es el único camino para restaurantes dados de alta antes de este cambio.
 
-**Hueco conocido:** no tenemos guardada la ANON key de Supabase de mi-menu (solo la `MIMENU_SERVICE_KEY`, que mi-menu no usa — su código pide la anon key). El endpoint crea la instancia igual pero lo reporta como advertencia; hay que agregar esa variable a mano en el proyecto de Vercel del cliente después.
+**Hueco conocido (corregido 2026-08-28 — el comportamiento real es más estricto de lo que decía esta sección):** no tenemos guardada la ANON key de Supabase de mi-menu (solo la `MIMENU_SERVICE_KEY`, que mi-menu no usa — su código pide la anon key). Verificado en tiempo de ejecución que `createClient(url, '')` lanza igual que `createClient('','')` — un deploy de mi-menu sin esta key truena al arrancar, no queda "creado pero degradado". Por eso el endpoint **bloquea el aprovisionamiento real de mi-menu** (400, `missingCritical`) hasta que se agregue `MIMENU_SUPABASE_ANON_KEY` a las variables de entorno de este proyecto (Vercel + `.env.local`) — no hay forma de evitarlo sin ese valor real, que hay que sacar del dashboard de Supabase del proyecto de mi-menu (Project Settings → API → anon/public key).
 
 **Variables de entorno para que esto funcione de verdad en producción:** `GITHUB_TOKEN` y `VERCEL_TOKEN` **ya están configuradas en Vercel** (2026-08-26/28) con los permisos correctos (`GITHUB_TOKEN`: `Contents: Read and write` + `Administration: Write`; `VERCEL_TOKEN`: permiso de crear proyectos) — el aprovisionamiento automático ya corre de verdad en producción, no solo en dry-run. Verificado con un cliente real (`mi-card-jesus-*`): repo creado en GitHub, proyecto creado en Vercel, badge "Instancia: Creada" visible en la tabla de Restaurantes.
 

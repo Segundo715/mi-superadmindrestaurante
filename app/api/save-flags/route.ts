@@ -32,7 +32,7 @@ function resolveTarget(key: string): { client: typeof supabaseAdmin; key: string
   if (key.endsWith('_mimenu')) {
     return { client: supabaseMiMenu, key: key.replace(/_mimenu$/, '') }
   }
-  if (key.endsWith('_micard') && process.env.MICARD_SUPABASE_URL) {
+  if (key.endsWith('_micard') && process.env.MICARD_SUPABASE_URL && process.env.MICARD_SERVICE_KEY) {
     return { client: supabaseMiCard, key: key.replace(/_micard$/, '') }
   }
   return { client: supabaseAdmin, key }
@@ -59,8 +59,9 @@ export async function POST(req: Request) {
 
   const { client, key } = resolveTarget(settingsKey)
 
-  await client.from('settings').delete().eq('key', key)
-  const { error } = await client.from('settings').insert({ key, value: JSON.stringify(flags) })
+  // upsert (no delete+insert): un insert fallido después de un delete exitoso borraría los
+  // flags/permisos existentes sin dejar nada que leer hasta que alguien vuelva a guardar a mano.
+  const { error } = await client.from('settings').upsert({ key, value: JSON.stringify(flags) }, { onConflict: 'key' })
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json({ ok: true })

@@ -3,6 +3,7 @@
 // Este handler las reenvía desde el servidor (server→server, sin restricciones de origen)
 // y adjunta un cookie admin_session firmado con el mismo ADMIN_SECRET que usa mi-proyecto.
 import { createHmac } from 'node:crypto'
+import { verifySaSession } from '@/lib/saAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +18,9 @@ function makeSession(adminId: string): string {
 }
 
 export async function POST(req: Request) {
+  if (!await verifySaSession())
+    return Response.json({ error: 'No autorizado' }, { status: 401 })
+
   const { path, body } = await req.json()
 
   if (!path || typeof path !== 'string' || !path.startsWith('/api/')) {

@@ -68,7 +68,8 @@ export async function POST(req: NextRequest) {
   targetsQuery = Array.isArray(restaurantIds) && restaurantIds.length > 0
     ? targetsQuery.in('id', restaurantIds)
     : targetsQuery.eq('product_id', product)
-  const { data } = await targetsQuery
+  const { data, error: targetsErr } = await targetsQuery
+  if (targetsErr) return Response.json({ error: targetsErr.message }, { status: 500 })
   const targets = data ?? []
 
   const today = new Date().toISOString().split('T')[0]

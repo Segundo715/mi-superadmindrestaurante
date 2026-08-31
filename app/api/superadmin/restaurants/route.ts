@@ -14,6 +14,9 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   if (!await verifySaSession()) return Response.json({ error: 'No autorizado' }, { status: 401 })
   const body = await req.json()
+  if (!body.name?.trim() || !body.email?.trim()) {
+    return Response.json({ error: 'Falta name o email' }, { status: 400 })
+  }
   const plan = body.plan ?? 'trial'
 
   // maxUsers y product_id salen del plan elegido (sa_plans), no de un switch hardcodeado.

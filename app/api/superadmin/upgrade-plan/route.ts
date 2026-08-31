@@ -29,10 +29,14 @@ export async function POST(req: NextRequest) {
 
   // fromPlan/toPlan no dependen entre sí — en paralelo. fromProduct/toProduct sí dependen del
   // product_id de cada plan, así que van en una segunda ronda paralela, no en cascada de 4.
-  const [{ data: fromPlan }, { data: toPlan }] = await Promise.all([
+  const [{ data: fromPlan, error: fromPlanErr }, { data: toPlan, error: toPlanErr }] = await Promise.all([
     supabase.from('sa_plans').select('*').eq('id', restaurant.plan).maybeSingle(),
     supabase.from('sa_plans').select('*').eq('id', targetPlanId).maybeSingle(),
   ])
+  // Distinguir "la consulta falló" de "el plan no existe" — antes ambos devolvían el mismo 400
+  // "no existe", lo que confundía a un admin reintentando con un plan id válido durante un error
+  // transitorio de Supabase.
+  if (fromPlanErr || toPlanErr) return Response.json({ error: (fromPlanErr ?? toPlanErr)?.message }, { status: 500 })
   if (!toPlan) return Response.json({ error: `El plan destino "${targetPlanId}" no existe` }, { status: 400 })
   if (toPlan.active === false) return Response.json({ error: `El plan "${targetPlanId}" ya no está activo para venta` }, { status: 400 })
 
@@ -85,7 +89,18 @@ export async function POST(req: NextRequest) {
 
   const maxUsers = toPlan.max_users ?? restaurant.max_users
   const today = new Date()
-  const addMonths = (months: number) => { const d = new Date(today); d.setMonth(d.getMonth() + months); return d.toISOString().split('T')[0] }
+  // Date.setMonth() se desborda al mes siguiente cuando el día actual no existe ahí (ej. 31 de
+  // enero + 1 mes -> 3 de marzo, no 28 de feb) — hay que fijar el día en 1 antes de mover el mes,
+  // y luego topar al último día real del mes destino.
+  const addMonths = (months: number) => {
+    const d = new Date(today)
+    const day = d.getDate()
+    d.setDate(1)
+    d.setMonth(d.getMonth() + months)
+    const lastDayOfTargetMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+    d.setDate(Math.min(day, lastDayOfTargetMonth))
+    return d.toISOString().split('T')[0]
+  }
   const updatesUntil = toPlan.incluye_actualizaciones ? (toPlan.meses_actualizaciones > 0 ? addMonths(toPlan.meses_actualizaciones) : null) : today.toISOString().split('T')[0]
   const supportUntil = toPlan.incluye_soporte ? (toPlan.meses_soporte > 0 ? addMonths(toPlan.meses_soporte) : null) : today.toISOString().split('T')[0]
 
