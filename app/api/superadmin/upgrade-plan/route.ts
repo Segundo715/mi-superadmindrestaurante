@@ -182,6 +182,11 @@ export async function POST(req: NextRequest) {
     from: preview.from,
     to: preview.to,
     direction,
+    // El frontend (Billing.applyPlanChange / Plans.applyAssign) lee `changes` para actualizar su
+    // estado local sin recargar — antes esta respuesta no lo traía (solo el preview de dryRun sí),
+    // así que maxUsers/billingMode/etc. quedaban desactualizados en pantalla hasta refrescar aunque
+    // sa_restaurants ya tuviera los valores correctos.
+    changes: preview.changes,
     dataMigration: { implemented: sameProduct ? null : false, reason: sameProduct ? null : 'Requiere confirmar esquema real de mi-menu/mi-card antes de automatizar la copia de datos' },
     warnings,
   }, { status: 201 })

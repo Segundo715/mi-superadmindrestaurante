@@ -30,13 +30,15 @@ export async function POST(req: NextRequest) {
   if (!await verifySaSession()) return Response.json({ error: 'No autorizado' }, { status: 401 })
   const body = await req.json()
   // Antes insertaba a mano con un IP inventado ('187.xxx.12', nunca una IP real) — usa el helper
-  // compartido como todo lo demás que escribe en sa_audit_log; el frontend no lee la fila devuelta.
-  await logAudit({
+  // compartido como todo lo demás que escribe en sa_audit_log; el frontend no lee la fila devuelta,
+  // pero sí revisa el resultado para no perder la señal de error que esta ruta ya daba antes.
+  const result = await logAudit({
     user: body.user ?? 'superadmin',
     restaurant: body.restaurant ?? '—',
     action: body.action,
     details: body.details ?? '',
     type: body.type ?? 'update',
   })
+  if (!result.ok) return Response.json({ error: result.error }, { status: 500 })
   return Response.json({ ok: true }, { status: 201 })
 }

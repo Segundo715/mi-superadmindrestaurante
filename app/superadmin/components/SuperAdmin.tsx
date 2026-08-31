@@ -1167,7 +1167,13 @@ function Billing({
       showToast(`${data?.error ?? "No se pudo guardar el cambio de plan"}${hint}`, "error");
       return;
     }
-    setRestaurants((p) => p.map((x) => x.id === target.id ? { ...x, plan: selectedPlan, productId: cfg.productId, billingMode: cfg.billingMode, maxUsers: data.changes?.maxUsers ?? x.maxUsers } : x));
+    setRestaurants((p) => p.map((x) => x.id === target.id ? {
+      ...x, plan: selectedPlan, productId: cfg.productId, billingMode: cfg.billingMode,
+      maxUsers: data.changes?.maxUsers ?? x.maxUsers,
+      subscriptionStatus: data.changes?.subscriptionStatus ?? x.subscriptionStatus,
+      updatesUntil: data.changes?.updatesUntil ?? x.updatesUntil,
+      supportUntil: data.changes?.supportUntil ?? x.supportUntil,
+    } : x));
     addAudit("Plan actualizado", `${target.name}: ${planLabel(changePlan.plan, planConfigs)} → ${cfg.name}`, "billing", target.name);
     showToast(data.warnings?.length ? `Plan actualizado — revisa: ${data.warnings[0]}` : `Plan de ${target.name} actualizado a ${cfg.name}`);
   };
@@ -1688,7 +1694,13 @@ function Plans({ restaurants, setRestaurants, planConfigs, setPlanConfigs, addAu
       return;
     }
     const cfg = planConfigs.find((p) => p.id === target.plan);
-    setRestaurants((p) => p.map((x) => x.id === target.r.id ? { ...x, plan: target.plan, productId: cfg?.productId, billingMode: cfg?.billingMode, maxUsers: data.changes?.maxUsers ?? x.maxUsers } : x));
+    setRestaurants((p) => p.map((x) => x.id === target.r.id ? {
+      ...x, plan: target.plan, productId: cfg?.productId, billingMode: cfg?.billingMode,
+      maxUsers: data.changes?.maxUsers ?? x.maxUsers,
+      subscriptionStatus: data.changes?.subscriptionStatus ?? x.subscriptionStatus,
+      updatesUntil: data.changes?.updatesUntil ?? x.updatesUntil,
+      supportUntil: data.changes?.supportUntil ?? x.supportUntil,
+    } : x));
     addAudit("Plan asignado", `${target.r.name}: → ${cfg?.name ?? target.plan}`, "billing", target.r.name);
     showToast(data.warnings?.length ? `Plan asignado — revisa: ${data.warnings[0]}` : `${target.r.name} movido a plan ${cfg?.name ?? target.plan}`);
   };
@@ -2633,7 +2645,11 @@ function Seguridad({ restaurants, showToast, addAudit }: {
     if (!sel && restaurants.length > 0) setSel(restaurants[0].id)
   }, [restaurants, sel]);
 
-  const cfg = configs.find((c) => c.restaurantId === sel);
+  // Sin el fallback, un restaurante recién dado de alta (sin fila todavía en sa_security) dejaba
+  // cfg undefined y todo el bloque de sliders/toggles de abajo no se renderizaba — el único control
+  // usable era "Guardar" a ciegas, sin que el admin viera ni ajustara nada antes de guardar.
+  const cfg = configs.find((c) => c.restaurantId === sel)
+    ?? (sel ? { restaurantId: sel, sessionHours: 8, pinRequired: false, allowedStart: '07:00', allowedEnd: '23:00', maxFailedLogins: 5, ipWhitelist: false } : undefined);
   const restaurant = restaurants.find((r) => r.id === sel);
 
   const update = (field: keyof SecurityConfig, value: string | number | boolean) => {
