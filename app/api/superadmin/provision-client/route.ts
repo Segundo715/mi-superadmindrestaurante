@@ -22,6 +22,7 @@ import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { createClientRepo } from '@/lib/githubProvision'
 import { createClientProject } from '@/lib/vercelProvision'
 import { logAudit } from '@/lib/audit'
+import { PROVISIONING_SENTINEL } from '@/lib/mapRestaurant'
 
 const TEMPLATE_OWNER = 'Segundo715'
 
@@ -130,6 +131,23 @@ export async function POST(req: NextRequest) {
     }, { status: 400 })
   }
 
+  // Claim atómico antes de arrancar el trabajo lento (GitHub + Vercel, hasta ~20s cada uno):
+  // sin esto, dos solicitudes concurrentes para el mismo restaurante (doble-click, dos pestañas)
+  // pasaban ambas el chequeo `if (restaurant.repo_name)` de arriba antes de que la primera
+  // terminara, y creaban dos repos + dos proyectos de Vercel — solo uno quedaba referenciado en
+  // sa_restaurants, el otro era un recurso huérfano. El `.is('repo_name', null)` hace que el UPDATE
+  // solo afecte una fila si nadie más ganó la carrera ya; `upgrade-plan` usa el mismo patrón con
+  // un índice único en sa_migrations para el mismo problema.
+  const { data: claimed, error: claimErr } = await supabase
+    .from('sa_restaurants')
+    .update({ repo_name: PROVISIONING_SENTINEL })
+    .eq('id', restaurantPk)
+    .is('repo_name', null)
+    .select('id')
+    .maybeSingle()
+  if (claimErr) return Response.json({ error: claimErr.message }, { status: 500 })
+  if (!claimed) return Response.json({ error: 'Este restaurante ya se está aprovisionando (o ya tiene instancia) — espera a que termine o revisa su detalle.' }, { status: 409 })
+
   const repoResult = await createClientRepo({
     templateOwner: product.repo_base_owner,
     templateRepo: product.repo_base_name,
@@ -137,7 +155,21 @@ export async function POST(req: NextRequest) {
     newName: repoName,
     description: `Instancia de ${restaurant.name} — ${product.id}`,
   })
-  if (!repoResult.ok) return Response.json({ error: `No se pudo crear el repo: ${repoResult.error}` }, { status: 502 })
+  if (!repoResult.ok) {
+    // Nada se creó — libera el claim para que se pueda reintentar sin quedar bloqueado.
+    await supabase.from('sa_restaurants').update({ repo_name: null }).eq('id', restaurantPk)
+    return Response.json({ error: `No se pudo crear el repo: ${repoResult.error}` }, { status: 502 })
+  }
+
+  // El repo ya existe de verdad — se confirma repo_name/url/branch ANTES de intentar Vercel, así
+  // si falla el siguiente paso el registro ya refleja que el repo es real (no se libera el claim:
+  // reintentar crearía un repo duplicado, GitHub /generate rechazaría con 422 "already exists").
+  await supabase.from('sa_restaurants').update({
+    repo_owner: TEMPLATE_OWNER,
+    repo_name: repoName,
+    repo_branch: repoResult.defaultBranch,
+    repo_url: repoResult.htmlUrl,
+  }).eq('id', restaurantPk)
 
   const projectResult = await createClientProject({
     projectName: repoName,
@@ -155,10 +187,6 @@ export async function POST(req: NextRequest) {
 
   const { error: uErr } = await supabase.from('sa_restaurants').update({
     restaurant_id: restaurantId,
-    repo_owner: TEMPLATE_OWNER,
-    repo_name: repoName,
-    repo_branch: repoResult.defaultBranch,
-    repo_url: repoResult.htmlUrl,
     deploy_url: projectResult.deployUrl,
     vercel_project_id: projectResult.projectId,
   }).eq('id', restaurantPk)

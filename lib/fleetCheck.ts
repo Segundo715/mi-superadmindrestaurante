@@ -55,8 +55,13 @@ export async function checkOneRestaurant(
   // a mitad de un lote de 25 en el cron.
 
   // 1. Health-check HTTP — siempre corre, no necesita ningún token.
+  // health_path no tiene UI para editarlo (solo se toca a mano en sa_products vía SQL) — si algún
+  // día se escribe sin "/" inicial o como cadena vacía, sin esto la URL concatenada queda mal
+  // formada (ej. "https://x.vercel.apphealth") en vez de caer al "/" por defecto.
+  const rawHealthPath = product?.health_path?.trim()
+  const healthPath = rawHealthPath ? (rawHealthPath.startsWith('/') ? rawHealthPath : `/${rawHealthPath}`) : '/'
   const httpPromise = restaurant.deploy_url
-    ? healthCheckHttp(restaurant.deploy_url.replace(/\/$/, '') + (product?.health_path ?? '/'))
+    ? healthCheckHttp(restaurant.deploy_url.replace(/\/$/, '') + healthPath)
     : Promise.resolve(null)
 
   // 2. Vercel — solo si hay project id y VERCEL_TOKEN configurado (degrada solo, no lanza).

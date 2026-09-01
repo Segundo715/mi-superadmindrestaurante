@@ -2261,7 +2261,9 @@ function Notifications({ showToast }: { showToast: (msg: string, type?: Toast["t
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, source }),
     });
-    setTickets(t => t.map(x => x.id === id ? { ...x, read: true } : x));
+    // Compara también `source`: los tickets vienen fusionados de dos BDs distintas (main/portales)
+    // y comparar solo por id arriesgaría marcar dos tickets a la vez si algún día coincidiera el id.
+    setTickets(t => t.map(x => x.id === id && x.source === source ? { ...x, read: true } : x));
   }
 
   async function markAllRead() {
@@ -2272,7 +2274,7 @@ function Notifications({ showToast }: { showToast: (msg: string, type?: Toast["t
 
   async function deleteTicket(id: string, source: Ticket["source"]) {
     await fetch(`/api/superadmin/tickets?id=${id}&source=${source}`, { method: "DELETE" });
-    setTickets(t => t.filter(x => x.id !== id));
+    setTickets(t => t.filter(x => !(x.id === id && x.source === source)));
     showToast("Reporte eliminado");
   }
 
@@ -2303,7 +2305,7 @@ function Notifications({ showToast }: { showToast: (msg: string, type?: Toast["t
           {tickets.map(ticket => {
             const roleColor = ROLE_COLOR[ticket.from_role] ?? "#6b7280";
             return (
-              <div key={ticket.id} className="sa-card" style={{ opacity: ticket.read ? 0.65 : 1 }}>
+              <div key={`${ticket.source}:${ticket.id}`} className="sa-card" style={{ opacity: ticket.read ? 0.65 : 1 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", flexWrap: "wrap" }}>

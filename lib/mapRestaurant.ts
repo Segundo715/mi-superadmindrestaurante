@@ -2,6 +2,11 @@
 // Antes vivía duplicado en restaurants/route.ts y restaurants/[id]/route.ts — con 25+ columnas
 // y creciendo, duplicarlo es la forma más rápida de que los dos endpoints empiecen a devolver
 // formas distintas del mismo restaurante.
+// Valor interno que provision-client usa para "reservar" la fila mientras crea el repo/deploy real
+// (evita que dos solicitudes concurrentes provisionen el mismo restaurante dos veces) — nunca debe
+// llegar al frontend como si fuera un repo de verdad, o el detalle intentaría armar un link roto.
+export const PROVISIONING_SENTINEL = '__provisioning__'
+
 export function toRestaurant(r: Record<string, unknown>) {
   return {
     id: r.id,
@@ -27,7 +32,7 @@ export function toRestaurant(r: Record<string, unknown>) {
     updatesUntil: r.updates_until,
     supportUntil: r.support_until,
     repoOwner: r.repo_owner,
-    repoName: r.repo_name,
+    repoName: r.repo_name === PROVISIONING_SENTINEL ? null : r.repo_name,
     repoBranch: r.repo_branch,
     repoUrl: r.repo_url,
     deployUrl: r.deploy_url,
