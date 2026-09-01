@@ -59,11 +59,15 @@ export async function GET() {
   today.setHours(0, 0, 0, 0)
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
 
+  // 'default' y 'resta3' comparten cliente (supabaseAdmin) Y clave ('cortes_historial') — son
+  // literalmente la misma fila de settings. Antes cada uno la pedía por separado (Promise.all las
+  // corría en paralelo, pero seguía siendo un round-trip a Supabase completo, redundante, sumado a
+  // la latencia total de la respuesta). Se pide una sola vez y se comparte entre los dos.
+  const sharedHistorialPromise = supabaseAdmin.from('settings').select('value').eq('key', 'cortes_historial').limit(1)
+
   const results = await Promise.all(APPS.map(async (app) => {
     if (app.type === 'resta3') {
-      const { data: historialRows } = await app.db
-        .from('settings').select('value').eq('key', app.corteKey).limit(1)
-
+      const { data: historialRows } = await sharedHistorialPromise
       const historialRow = Array.isArray(historialRows) ? historialRows[0] : historialRows
       // Antes: .slice(-50) ANTES de filtrar por fecha — si el restaurante tenía más de 50 cortes
       // en total Y más de 50 en el mes en curso, los cortes más viejos del mes quedaban fuera de
@@ -81,7 +85,7 @@ export async function GET() {
     if (app.ridFilter) ordersQuery = ordersQuery.eq('restaurant_id', app.ridFilter)
     const [{ data: orders }, { data: historialRows }] = await Promise.all([
       ordersQuery,
-      app.db.from('settings').select('value').eq('key', app.corteKey).limit(1),
+      app.id === 'default' ? sharedHistorialPromise : app.db.from('settings').select('value').eq('key', app.corteKey).limit(1),
     ])
 
     const historialRow = Array.isArray(historialRows) ? historialRows[0] : historialRows
