@@ -276,3 +276,11 @@ app/api/superadmin/revenue/route.ts
 CLAUDE.md,CONTEXT.md
 
 ---
+
+## 2026-09-01 — Tuesday
+
+### 12:08 PM — main
+**perf: no bloquear Ventas Reales/Tickets esperando a Portales**
+app/api/superadmin/revenue/route.ts,app/api/superadmin/tickets/route.ts,app/superadmin/components/SuperAdmin.tsx
+
+---
