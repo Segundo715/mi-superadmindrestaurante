@@ -3,16 +3,35 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { supabasePortales } from '@/lib/supabasePortales'
 import { NextRequest } from 'next/server'
 
+// supabasePortales responde ~7s más lento que la BD principal desde Vercel (2026-09-01, ver nota
+// en CLAUDE.md — probable desajuste de región) — ?source=main|portales deja pedir cada mitad por
+// separado en vez de que el caller quede bloqueado esperando siempre a la más lenta de las dos.
 export async function GET(req: NextRequest) {
   if (!(await verifySaSession()))
     return Response.json({ error: 'No autorizado' }, { status: 401 })
 
+  const source = req.nextUrl.searchParams.get('source') // 'main' | 'portales' | null (ambas)
+
   if (req.nextUrl.searchParams.get('count') === 'true') {
+    if (source === 'main') {
+      const { count } = await supabaseAdmin.from('sa_tickets').select('id', { count: 'exact', head: true }).eq('read', false)
+      return Response.json({ unread: count ?? 0 })
+    }
+    if (source === 'portales') {
+      const { count } = await supabasePortales.from('sa_tickets').select('id', { count: 'exact', head: true }).eq('read', false)
+      return Response.json({ unread: count ?? 0 })
+    }
     const [{ count: c1 }, { count: c2 }] = await Promise.all([
       supabaseAdmin.from('sa_tickets').select('id', { count: 'exact', head: true }).eq('read', false),
       supabasePortales.from('sa_tickets').select('id', { count: 'exact', head: true }).eq('read', false),
     ])
     return Response.json({ unread: (c1 ?? 0) + (c2 ?? 0) })
+  }
+
+  if (source === 'main' || source === 'portales') {
+    const db = source === 'main' ? supabaseAdmin : supabasePortales
+    const { data } = await db.from('sa_tickets').select('*').order('created_at', { ascending: false })
+    return Response.json((data ?? []).map(t => ({ ...t, source })))
   }
 
   const [{ data: main }, { data: portales }] = await Promise.all([

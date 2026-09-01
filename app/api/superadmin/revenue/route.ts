@@ -1,3 +1,4 @@
+import { NextRequest } from 'next/server'
 import { verifySaSession } from '@/lib/saAuth'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { supabasePortales } from '@/lib/supabasePortales'
@@ -47,13 +48,21 @@ const APPS = [
   // Portales: BD propia, todas las órdenes son de portales — sin filtro de rid (antes se filtraba
   // igual que Nicho por 'restaurant_id'='default', contradiciendo este mismo comentario; si algún
   // pedido de portales tuviera un restaurant_id distinto a 'default' se excluía en silencio).
+  // 2026-09-01: esta BD responde en ~7s desde la función de Vercel (probable desajuste de región —
+  // ver nota en CLAUDE.md), muchísimo más lenta que la BD principal. Por eso GET acepta ?apps= para
+  // pedirla aparte del resto — así el frontend puede mostrar Nicho/Resta3 de inmediato y dejar
+  // Portales cargando en su propia pestaña en vez de bloquear toda la vista por ella.
   { id: 'portales', name: 'Portales',             db: supabasePortales, ridFilter: null as string | null, corteKey: 'cortes_historial',  type: 'orders' as const },
   // Resta3: cortes del Nicho (comparte BD con Nicho)
   { id: 'resta3',   name: 'Resta3',               db: supabaseAdmin,   ridFilter: 'default' as string | null, corteKey: 'cortes_historial',  type: 'resta3' as const },
 ]
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   if (!await verifySaSession()) return Response.json({ error: 'No autorizado' }, { status: 401 })
+
+  const appsParam = req.nextUrl.searchParams.get('apps')
+  const wanted = appsParam ? new Set(appsParam.split(',').map(s => s.trim()).filter(Boolean)) : null
+  const apps = wanted ? APPS.filter(a => wanted.has(a.id)) : APPS
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -62,12 +71,15 @@ export async function GET() {
   // 'default' y 'resta3' comparten cliente (supabaseAdmin) Y clave ('cortes_historial') — son
   // literalmente la misma fila de settings. Antes cada uno la pedía por separado (Promise.all las
   // corría en paralelo, pero seguía siendo un round-trip a Supabase completo, redundante, sumado a
-  // la latencia total de la respuesta). Se pide una sola vez y se comparte entre los dos.
-  const sharedHistorialPromise = supabaseAdmin.from('settings').select('value').eq('key', 'cortes_historial').limit(1)
+  // la latencia total de la respuesta). Se pide una sola vez (si hace falta) y se comparte.
+  const needsSharedHistorial = apps.some(a => a.id === 'default' || a.id === 'resta3')
+  const sharedHistorialPromise = needsSharedHistorial
+    ? supabaseAdmin.from('settings').select('value').eq('key', 'cortes_historial').limit(1)
+    : null
 
-  const results = await Promise.all(APPS.map(async (app) => {
+  const results = await Promise.all(apps.map(async (app) => {
     if (app.type === 'resta3') {
-      const { data: historialRows } = await sharedHistorialPromise
+      const { data: historialRows } = await sharedHistorialPromise!
       const historialRow = Array.isArray(historialRows) ? historialRows[0] : historialRows
       // Antes: .slice(-50) ANTES de filtrar por fecha — si el restaurante tenía más de 50 cortes
       // en total Y más de 50 en el mes en curso, los cortes más viejos del mes quedaban fuera de
@@ -85,7 +97,7 @@ export async function GET() {
     if (app.ridFilter) ordersQuery = ordersQuery.eq('restaurant_id', app.ridFilter)
     const [{ data: orders }, { data: historialRows }] = await Promise.all([
       ordersQuery,
-      app.id === 'default' ? sharedHistorialPromise : app.db.from('settings').select('value').eq('key', app.corteKey).limit(1),
+      app.id === 'default' ? sharedHistorialPromise! : app.db.from('settings').select('value').eq('key', app.corteKey).limit(1),
     ])
 
     const historialRow = Array.isArray(historialRows) ? historialRows[0] : historialRows

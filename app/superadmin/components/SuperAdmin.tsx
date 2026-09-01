@@ -2286,9 +2286,15 @@ function Notifications({ showToast }: { showToast: (msg: string, type?: Toast["t
 
   async function load() {
     setLoading(true);
-    const data = await fetch("/api/superadmin/tickets").then(r => r.json()).catch(() => []);
-    setTickets(Array.isArray(data) ? data : []);
+    // main (BD principal) responde rápido — no bloquear la vista esperando a portales, que
+    // responde ~7s más lento desde Vercel (ver nota en CLAUDE.md). Se pide aparte y se agrega a
+    // la lista en cuanto llega.
+    const main = await fetch("/api/superadmin/tickets?source=main").then(r => r.json()).catch(() => []);
+    setTickets(Array.isArray(main) ? main : []);
     setLoading(false);
+    fetch("/api/superadmin/tickets?source=portales").then(r => r.json())
+      .then(portales => { if (Array.isArray(portales) && portales.length) setTickets(prev => [...prev, ...portales].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())) })
+      .catch(() => {});
   }
 
   useEffect(() => { load(); }, []);
@@ -2849,11 +2855,20 @@ function VentasReales() {
   const [tab, setTab]         = useState<string>('default');
 
   useEffect(() => {
-    fetch('/api/superadmin/revenue')
+    // Nicho/Resta3 (BD principal) responden rápido — no bloquear la vista esperando a Portales,
+    // que vive en una BD aparte y responde ~7s más lento desde Vercel (ver nota en CLAUDE.md,
+    // probable desajuste de región). Portales se pide por separado y se agrega a `data` en cuanto
+    // llega, sin tocar `loading` (que ya se apagó con la respuesta rápida de arriba).
+    fetch('/api/superadmin/revenue?apps=default,resta3')
       .then(r => r.json())
       .then(d => { if (Array.isArray(d)) { setData(d); if (d[0]) setTab(d[0].id) } })
       .catch(() => {})
       .finally(() => setLoading(false))
+
+    fetch('/api/superadmin/revenue?apps=portales')
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d) && d[0]) setData(prev => [...prev, d[0]]) })
+      .catch(() => {})
   }, []);
 
   const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 0 })}`
@@ -3093,7 +3108,11 @@ function Dashboard({ onLogout, theme, toggleTheme }: { onLogout: () => void; the
     fetch('/api/superadmin/plans').then(r => r.json()).then(d => { if (Array.isArray(d)) setPlanConfigs(d) }).catch(() => {}).finally(() => setPlansLoaded(true))
     fetch('/api/superadmin/products').then(r => r.json()).then(d => { if (Array.isArray(d)) setProductConfigs(d) }).catch(() => {})
     fetch('/api/superadmin/requests').then(r => r.json()).then(d => { if (Array.isArray(d)) setRequests(d) }).catch(() => {})
-    fetch('/api/superadmin/tickets?count=true').then(r => r.json()).then(d => setUnreadTickets(d.unread ?? 0)).catch(() => {})
+    // Partido en dos (main rápido, portales ~7s más lento desde Vercel — ver nota en CLAUDE.md)
+    // para que el badge muestre el conteo de main de inmediato y sume portales en cuanto llegue,
+    // en vez de quedarse en 0 varios segundos esperando a la BD más lenta.
+    fetch('/api/superadmin/tickets?count=true&source=main').then(r => r.json()).then(d => setUnreadTickets(u => u + (d.unread ?? 0))).catch(() => {})
+    fetch('/api/superadmin/tickets?count=true&source=portales').then(r => r.json()).then(d => setUnreadTickets(u => u + (d.unread ?? 0))).catch(() => {})
     fetch('/api/superadmin/fleet').then(r => r.json()).then(d => { if (Array.isArray(d)) setFleetStatus(d) }).catch(() => {})
     fetch('/api/superadmin/client-updates').then(r => r.json()).then(d => { if (Array.isArray(d)) setClientUpdates(d) }).catch(() => {})
   }, []);
