@@ -49,14 +49,19 @@ export async function DELETE(_: NextRequest, ctx: { params: Promise<{ id: string
   const { error } = await supabase.from('sa_restaurants').delete().eq('id', id)
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
+  let snapshotWarning: string | undefined
   if (before) {
-    await logAudit({
+    const result = await logAudit({
       restaurant: before.name ?? '—',
       action: 'Restaurante eliminado',
       details: JSON.stringify(before),
       type: 'delete',
     })
+    // El restaurante ya se borró (no hay forma de deshacer eso aquí) — pero si el snapshot de
+    // seguridad tampoco se guardó, hay que decirlo: es justo el caso que este snapshot existe para
+    // prevenir (ver comentario arriba, incidente de "Los Portales" 2026-08-26).
+    if (!result.ok) snapshotWarning = `El restaurante se eliminó, pero no se pudo guardar el snapshot de respaldo: ${result.error}`
   }
 
-  return Response.json({ ok: true })
+  return Response.json({ ok: true, warning: snapshotWarning })
 }

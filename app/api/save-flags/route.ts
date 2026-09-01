@@ -39,6 +39,12 @@ function resolveTarget(key: string): { client: typeof supabaseAdmin; key: string
 }
 
 export async function GET(req: Request) {
+  // Solo la UI del superadmin lee de aquí (los clientes leen sus propios flags directo de su BD,
+  // no vía este endpoint) — sin este guard, cualquiera sin sesión podía leer flags/permisos de
+  // cualquier producto, el mismo hueco que ya se corrigió en demo-proxy.
+  if (!await verifySaSession())
+    return Response.json({ error: 'No autorizado' }, { status: 401 })
+
   const { searchParams } = new URL(req.url)
   const rawKey = searchParams.get('key') ?? 'feature_flags'
 

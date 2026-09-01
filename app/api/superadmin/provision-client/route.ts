@@ -86,8 +86,15 @@ export async function POST(req: NextRequest) {
 
   const { data: restaurant, error: rErr } = await supabase.from('sa_restaurants').select('*').eq('id', restaurantPk).single()
   if (rErr || !restaurant) return Response.json({ error: 'Restaurante no encontrado' }, { status: 404 })
-  if (restaurant.repo_name) {
+  // Si ya tiene repo_name pero no deploy_url, es un aprovisionamiento previo que creó el repo pero
+  // falló al crear el proyecto de Vercel — se puede reanudar desde ahí en vez de quedar bloqueado
+  // para siempre (antes, cualquier repo_name presente rechazaba todo intento nuevo).
+  const resuming = !!restaurant.repo_name && restaurant.repo_name !== PROVISIONING_SENTINEL && !restaurant.deploy_url
+  if (restaurant.repo_name && restaurant.repo_name !== PROVISIONING_SENTINEL && restaurant.deploy_url) {
     return Response.json({ error: `Este restaurante ya tiene una instancia aprovisionada (${restaurant.repo_owner}/${restaurant.repo_name})` }, { status: 400 })
+  }
+  if (restaurant.repo_name === PROVISIONING_SENTINEL) {
+    return Response.json({ error: 'Este restaurante ya se está aprovisionando — espera a que termine.' }, { status: 409 })
   }
   if (!restaurant.product_id) return Response.json({ error: 'El restaurante no tiene producto asignado — asígnale un plan primero' }, { status: 400 })
 
@@ -107,7 +114,8 @@ export async function POST(req: NextRequest) {
     ok: true,
     dryRun: true,
     template: `${product.repo_base_owner}/${product.repo_base_name}`,
-    newRepo: `${TEMPLATE_OWNER}/${repoName}`,
+    newRepo: resuming ? `${restaurant.repo_owner}/${restaurant.repo_name}` : `${TEMPLATE_OWNER}/${repoName}`,
+    resuming,
     restaurantId,
     envVarsToSet: envVars.map((v) => v.key), // no se exponen valores, ni siquiera en dry-run
     githubTokenConfigured: !!process.env.GITHUB_TOKEN,
@@ -131,48 +139,67 @@ export async function POST(req: NextRequest) {
     }, { status: 400 })
   }
 
-  // Claim atómico antes de arrancar el trabajo lento (GitHub + Vercel, hasta ~20s cada uno):
-  // sin esto, dos solicitudes concurrentes para el mismo restaurante (doble-click, dos pestañas)
-  // pasaban ambas el chequeo `if (restaurant.repo_name)` de arriba antes de que la primera
-  // terminara, y creaban dos repos + dos proyectos de Vercel — solo uno quedaba referenciado en
-  // sa_restaurants, el otro era un recurso huérfano. El `.is('repo_name', null)` hace que el UPDATE
-  // solo afecte una fila si nadie más ganó la carrera ya; `upgrade-plan` usa el mismo patrón con
-  // un índice único en sa_migrations para el mismo problema.
-  const { data: claimed, error: claimErr } = await supabase
-    .from('sa_restaurants')
-    .update({ repo_name: PROVISIONING_SENTINEL })
-    .eq('id', restaurantPk)
-    .is('repo_name', null)
-    .select('id')
-    .maybeSingle()
-  if (claimErr) return Response.json({ error: claimErr.message }, { status: 500 })
-  if (!claimed) return Response.json({ error: 'Este restaurante ya se está aprovisionando (o ya tiene instancia) — espera a que termine o revisa su detalle.' }, { status: 409 })
+  let repoResult: { ok: true; fullName: string; htmlUrl: string; defaultBranch: string } | { ok: false; error: string }
 
-  const repoResult = await createClientRepo({
-    templateOwner: product.repo_base_owner,
-    templateRepo: product.repo_base_name,
-    newOwner: TEMPLATE_OWNER,
-    newName: repoName,
-    description: `Instancia de ${restaurant.name} — ${product.id}`,
-  })
-  if (!repoResult.ok) {
-    // Nada se creó — libera el claim para que se pueda reintentar sin quedar bloqueado.
-    await supabase.from('sa_restaurants').update({ repo_name: null }).eq('id', restaurantPk)
-    return Response.json({ error: `No se pudo crear el repo: ${repoResult.error}` }, { status: 502 })
+  if (resuming) {
+    // El repo ya existe de un intento previo (falló solo el paso de Vercel) — no se vuelve a
+    // generar, se reutiliza tal cual quedó guardado. No hace falta el claim atómico aquí: no hay
+    // repo_name=null que reservar, y el nombre de proyecto en Vercel ya es único por sí mismo.
+    repoResult = {
+      ok: true,
+      fullName: `${restaurant.repo_owner}/${restaurant.repo_name}`,
+      htmlUrl: restaurant.repo_url,
+      defaultBranch: restaurant.repo_branch ?? 'main',
+    }
+  } else {
+    // Claim atómico antes de arrancar el trabajo lento (GitHub + Vercel, hasta ~20s cada uno):
+    // sin esto, dos solicitudes concurrentes para el mismo restaurante (doble-click, dos pestañas)
+    // pasaban ambas el chequeo de arriba antes de que la primera terminara, y creaban dos repos +
+    // dos proyectos de Vercel — solo uno quedaba referenciado en sa_restaurants, el otro era un
+    // recurso huérfano. El `.is('repo_name', null)` hace que el UPDATE solo afecte una fila si
+    // nadie más ganó la carrera ya; `upgrade-plan` usa el mismo patrón con un índice único en
+    // sa_migrations para el mismo problema.
+    const { data: claimed, error: claimErr } = await supabase
+      .from('sa_restaurants')
+      .update({ repo_name: PROVISIONING_SENTINEL })
+      .eq('id', restaurantPk)
+      .is('repo_name', null)
+      .select('id')
+      .maybeSingle()
+    if (claimErr) return Response.json({ error: claimErr.message }, { status: 500 })
+    if (!claimed) return Response.json({ error: 'Este restaurante ya se está aprovisionando (o ya tiene instancia) — espera a que termine o revisa su detalle.' }, { status: 409 })
+
+    repoResult = await createClientRepo({
+      templateOwner: product.repo_base_owner,
+      templateRepo: product.repo_base_name,
+      newOwner: TEMPLATE_OWNER,
+      newName: repoName,
+      description: `Instancia de ${restaurant.name} — ${product.id}`,
+      private: true,
+    })
+    if (!repoResult.ok) {
+      // Nada se creó — libera el claim para que se pueda reintentar sin quedar bloqueado.
+      await supabase.from('sa_restaurants').update({ repo_name: null }).eq('id', restaurantPk)
+      return Response.json({ error: `No se pudo crear el repo: ${repoResult.error}` }, { status: 502 })
+    }
+
+    // El repo ya existe de verdad — se confirma repo_name/url/branch ANTES de intentar Vercel, así
+    // si falla el siguiente paso el registro ya refleja que el repo es real (no se libera el claim:
+    // reintentar crearía un repo duplicado, GitHub /generate rechazaría con 422 "already exists").
+    // Además deja repo_name en un estado "resumible" (deploy_url sigue null) para el próximo intento.
+    await supabase.from('sa_restaurants').update({
+      repo_owner: TEMPLATE_OWNER,
+      repo_name: repoName,
+      repo_branch: repoResult.defaultBranch,
+      repo_url: repoResult.htmlUrl,
+    }).eq('id', restaurantPk)
   }
 
-  // El repo ya existe de verdad — se confirma repo_name/url/branch ANTES de intentar Vercel, así
-  // si falla el siguiente paso el registro ya refleja que el repo es real (no se libera el claim:
-  // reintentar crearía un repo duplicado, GitHub /generate rechazaría con 422 "already exists").
-  await supabase.from('sa_restaurants').update({
-    repo_owner: TEMPLATE_OWNER,
-    repo_name: repoName,
-    repo_branch: repoResult.defaultBranch,
-    repo_url: repoResult.htmlUrl,
-  }).eq('id', restaurantPk)
-
   const projectResult = await createClientProject({
-    projectName: repoName,
+    // Al reanudar se usa el nombre real ya guardado, no el recalculado — coinciden en el caso
+    // normal, pero si el nombre del restaurante se editó entre el intento fallido y este reintento,
+    // el repo real sigue llamándose como se guardó, no como se recalcularía ahora.
+    projectName: resuming ? restaurant.repo_name : repoName,
     githubRepoFullName: repoResult.fullName,
     envVars,
   })

@@ -30,7 +30,10 @@ export async function createClientRepo(opts: {
         name: opts.newName,
         description: opts.description ?? `Instancia de cliente — generada desde ${opts.templateOwner}/${opts.templateRepo}`,
         include_all_branches: false,
-        private: opts.private ?? false,
+        // Público por defecto exponía el código fuente (personalizado por cliente) de cada
+        // instancia bajo Segundo715 — el repo de un cliente no debería ser público a menos que
+        // se pida explícitamente.
+        private: opts.private ?? true,
       },
     }
   )

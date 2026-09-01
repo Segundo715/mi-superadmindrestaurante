@@ -409,10 +409,14 @@ function Restaurants({
     return filter === "all" ? s : s && (r.productId ?? "mi-proyecto") === filter;
   });
 
-  const toggleStatus = (r: Restaurant) => {
+  const toggleStatus = async (r: Restaurant) => {
     const next: Status = r.status === "suspended" ? "active" : "suspended";
+    // Espera la respuesta antes de tocar estado local/toast — antes esto era optimista sin
+    // revisar res.ok, así que un PATCH fallido (sesión vencida, error de BD) igual mostraba
+    // "suspendido"/"reactivado" con éxito aunque la BD se quedara con el valor viejo.
+    const res = await fetch(`/api/superadmin/restaurants/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: next }) }).catch(() => null);
+    if (!res || !res.ok) { showToast("No se pudo actualizar el estado — reintenta", "error"); return; }
     setRestaurants((prev) => prev.map((x) => x.id === r.id ? { ...x, status: next } : x));
-    fetch(`/api/superadmin/restaurants/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: next }) }).catch(() => {})
     addAudit(next === "suspended" ? "Restaurante suspendido" : "Restaurante reactivado", r.name, "update", r.name);
     showToast(`${r.name} ${next === "suspended" ? "suspendido" : "reactivado"}`);
     setSelected(null);
@@ -424,12 +428,14 @@ function Restaurants({
   const deleteRestaurant = async (r: Restaurant) => {
     setDeleting(true);
     const res = await fetch(`/api/superadmin/restaurants/${r.id}`, { method: 'DELETE' }).catch(() => null);
+    const data = await res?.json().catch(() => null);
     setDeleting(false);
     if (!res || !res.ok) { showToast("No se pudo eliminar el restaurante — reintenta", "error"); return; }
     setRestaurants((prev) => prev.filter((x) => x.id !== r.id));
     // No hace falta addAudit() aquí — el endpoint DELETE ya guarda un snapshot completo de la
     // fila en sa_audit_log.details antes de borrar (para poder reconstruirla si fue sin querer).
-    showToast(`${r.name} eliminado`);
+    // Si ese snapshot falló, el endpoint lo avisa en `warning` — el restaurante igual se borró.
+    showToast(data?.warning ?? `${r.name} eliminado`, data?.warning ? "error" : "success");
     setDeleteTarget(null);
     setSelected(null);
   };
@@ -568,8 +574,11 @@ function Restaurants({
                 </button>
               )}
               <button className="sa-btn" style={{ flex: 1 }} onClick={() => setUpgradeFor(selected)}><Icon name="shuffle" size={16} /> Cambiar plan/producto</button>
-              {!selected.repoName && (
-                <button className="sa-btn primary" style={{ flex: 1 }} onClick={() => setProvisionFor(selected)}><Icon name="package" size={16} /> Aprovisionar instancia</button>
+              {/* También se muestra si ya tiene repo_name pero no deployUrl: un intento previo creó
+                  el repo pero falló en Vercel — provision-client sabe reanudar desde ahí en vez de
+                  intentar crear el repo otra vez. */}
+              {!selected.deployUrl && (
+                <button className="sa-btn primary" style={{ flex: 1 }} onClick={() => setProvisionFor(selected)}><Icon name="package" size={16} /> {selected.repoName ? "Reanudar aprovisionamiento" : "Aprovisionar instancia"}</button>
               )}
               <button className="sa-btn danger" style={{ flex: 1 }} onClick={() => setDeleteTarget(selected)}><Icon name="trash" size={16} /> Eliminar</button>
               <button className="sa-btn" style={{ flex: 1 }} onClick={() => setSelected(null)}>Cerrar</button>
@@ -987,6 +996,21 @@ function FeatureFlags({
     }
     setFlags(newFlags);
 
+    // Un restaurante individual (no Global/Portales/mi-menu/mi-card) no tiene una BD/clave propia
+    // donde guardar flags todavía — antes esto caía al `else` de abajo y reenviaba a la clave
+    // GLOBAL compartida ("feature_flags") los valores de "all_*" tal cual estaban, sin el cambio
+    // que se acaba de hacer (que vive solo en "<restaurantId>_*", nunca leído por nadie) — el
+    // toggle parecía guardarse (toast de éxito) pero no tenía ningún efecto real en ese
+    // restaurante, y de paso reescribía la clave global con datos que ya estaban ahí. Bloquear
+    // aquí en vez de fingir que se guardó — falta implementar flags por restaurante individual
+    // (requiere que mi-proyecto lea su propia clave por restaurant_id, no solo este panel).
+    const isIndividualRestaurant = !isPortales && !isMiMenu && !isMiCard && sel !== CONNECTED_RESTAURANT && sel !== "all";
+    if (isIndividualRestaurant) {
+      showToast(`Los flags por restaurante individual todavía no se guardan — usa Global, Portales, mi-menu o mi-card`, "error");
+      addAudit(`Feature flag ${next ? "activada" : "desactivada"} (solo visual, no guardado)`, `${fname} → ${selName}`, "update", selName);
+      return;
+    }
+
     // Portales guarda R1 + Resta3 juntos en feature_flags_portales.
     // Global guarda R1 en feature_flags y Resta3 en feature_flags_resta3.
     // mi-menu tiene su propio proyecto Supabase — feature_flags_mimenu.
@@ -1030,7 +1054,12 @@ function FeatureFlags({
   };
 
   // Portales y Global muestran todas las features (R1 + Resta3); mi-card tiene su propio catálogo, mucho más chico.
-  const visibleFeatures = sel === CONNECTED_MICARD ? FEATURES_MICARD : FEATURES;
+  // mi-menu no soporta los módulos de Resta3 (confirmado en toggle(): isResta3 se fuerza a false
+  // para mi-menu) — mostrarlos ahí invitaba a "activarlos" y el toggle se perdía en silencio sin
+  // guardarse nunca, igual que ya se excluye FEATURES_MICARD para mi-card.
+  const visibleFeatures = sel === CONNECTED_MICARD ? FEATURES_MICARD
+                         : sel === CONNECTED_MIMENU ? FEATURES_R1
+                         : FEATURES;
   const categories = [...new Set(visibleFeatures.map((f) => f.category))];
 
   return (
@@ -1929,10 +1958,11 @@ function Discounts({ addAudit, showToast }: {
     setShowForm(false);
   };
 
-  const toggleActive = (id: string) => {
+  const toggleActive = async (id: string) => {
     const c = codes.find((x) => x.id === id)!;
+    const res = await fetch(`/api/superadmin/discounts/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: !c.active }) }).catch(() => null);
+    if (!res || !res.ok) { showToast("No se pudo actualizar el código — reintenta", "error"); return; }
     setCodes((p) => p.map((x) => x.id === id ? { ...x, active: !x.active } : x));
-    fetch(`/api/superadmin/discounts/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: !c.active }) }).catch(() => {})
     showToast(`Código ${c.code} ${c.active ? "desactivado" : "activado"}`);
   };
 
@@ -2401,6 +2431,16 @@ function Permisos({ restaurants, addAudit, showToast }: {
       if (sel === "all") newFlags[`${CONNECTED_RESTAURANT}_${m.id}`] = next;
     }
     setFlags(newFlags);
+
+    // Mismo hueco que en FeatureFlags.toggle: un restaurante individual no tiene clave propia
+    // donde guardar permisos — sin esto, el toggle caía al `else` y resaveaba la clave GLOBAL
+    // ("employee_permissions"/"user_permissions") con los valores viejos de "all_*", mostrando
+    // éxito sin que el cambio tuviera ningún efecto real en ese restaurante.
+    const isIndividualRestaurant = !isPortales && sel !== CONNECTED_RESTAURANT && sel !== "all";
+    if (isIndividualRestaurant) {
+      showToast(`Los permisos por restaurante individual todavía no se guardan — usa "Todos los restaurantes" o Portales`, "error");
+      return;
+    }
 
     const baseKey = tab === "employee" ? "employee_permissions" : "user_permissions";
     const settingsKey = isPortales ? `${baseKey}_portales` : baseKey;

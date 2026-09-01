@@ -15,7 +15,10 @@ export async function POST(req: NextRequest) {
 
   if (!process.env.NICHO_REGISTER_KEY || key !== process.env.NICHO_REGISTER_KEY)
     return Response.json({ error: 'No autorizado' }, { status: 401 })
-  if (!restaurantId || !name)
+  // typeof, no solo truthiness: un restaurantId numérico (JSON no distingue "123" de 123) pasaba
+  // el chequeo de arriba pero tronaba más abajo en escapeRegex() con un TypeError sin manejar
+  // ("123.replace is not a function") en vez de este 400 limpio.
+  if (typeof restaurantId !== 'string' || !restaurantId || typeof name !== 'string' || !name)
     return Response.json({ error: 'Faltan datos' }, { status: 400 })
 
   const now = new Date().toISOString()

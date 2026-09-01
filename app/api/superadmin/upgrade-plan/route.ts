@@ -58,9 +58,18 @@ export async function POST(req: NextRequest) {
   // comparación caiga del lado seguro — 'downgrade', que exige acknowledgeDataLoss — en vez de
   // dejar pasar un cambio potencialmente destructivo sin confirmación.
   const fromTier = fromProduct?.tier ?? 99
-  const direction: 'upgrade' | 'downgrade' | 'billing_change' = sameProduct
-    ? 'billing_change'
-    : (toProduct?.tier ?? 0) > fromTier ? 'upgrade' : 'downgrade'
+  // Un cambio dentro del MISMO producto también puede ser un downgrade real (ej. premium→basic,
+  // menos max_users) — antes esto siempre se clasificaba como 'billing_change' sin importar el
+  // tier, así que nunca exigía acknowledgeDataLoss y podía dejar activos por encima del nuevo
+  // límite sin ninguna advertencia. Se compara contra max_users del plan de origen Y contra los
+  // usuarios activos reales del restaurante, lo que sea más estricto.
+  const sameProductDowngrade = sameProduct
+    && (toPlan.max_users < (fromPlan?.max_users ?? 0) || toPlan.max_users < (restaurant.users ?? 0))
+  const direction: 'upgrade' | 'downgrade' | 'billing_change' = sameProductDowngrade
+    ? 'downgrade'
+    : sameProduct
+      ? 'billing_change'
+      : (toProduct?.tier ?? 0) > fromTier ? 'upgrade' : 'downgrade'
 
   const warnings: string[] = []
   const steps: Step[] = [{ step: 'validate', status: 'ok' }]
@@ -68,7 +77,9 @@ export async function POST(req: NextRequest) {
   if (direction === 'downgrade' && !acknowledgeDataLoss) {
     return Response.json({
       ok: false,
-      error: 'Este cambio es un downgrade de producto y puede dejar fuera datos que el plan destino no soporta',
+      error: sameProductDowngrade
+        ? `El plan destino permite máx. ${toPlan.max_users} usuarios, menos que los ${restaurant.users ?? 0} activos ahora — usuarios por encima del límite pueden quedar bloqueados`
+        : 'Este cambio es un downgrade de producto y puede dejar fuera datos que el plan destino no soporta',
       hint: 'Reintenta con acknowledgeDataLoss:true si confirmas que quieres continuar',
       from: { planId: fromPlan?.id, productId: fromPlan?.product_id, tier: fromProduct?.tier },
       to: { planId: toPlan.id, productId: toPlan.product_id, tier: toProduct?.tier },
@@ -161,11 +172,17 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: false, migrationId: migration.id, failedAt: 'update:restaurant', error: uErr.message, rollbackAvailable: true }, { status: 409 })
   }
 
-  await supabase.from('sa_migrations').update({
+  // Si este UPDATE falla, la migración queda con status='running' para siempre — y como
+  // sa_migrations_running_uidx es un índice único parcial sobre status='running', eso bloquearía
+  // TODO cambio de plan futuro para este restaurante con un 409 "ya hay un cambio en curso" aunque
+  // ya no haya nada en progreso de verdad. sa_restaurants ya se actualizó bien (arriba), así que
+  // no vale la pena fallar la respuesta por esto — pero sí dejarlo visible para revisarlo a mano.
+  const { error: finishErr } = await supabase.from('sa_migrations').update({
     status: 'ok',
     steps: JSON.stringify([...steps, { step: 'update:restaurant', status: 'ok' }, { step: 'audit', status: 'ok' }]),
     finished_at: new Date().toISOString(),
   }).eq('id', migration.id)
+  if (finishErr) console.error(`[upgrade-plan] no se pudo cerrar sa_migrations ${migration.id} (quedará bloqueando futuros cambios de plan para este restaurante):`, finishErr.message)
 
   await logAudit({
     user: appliedBy,
