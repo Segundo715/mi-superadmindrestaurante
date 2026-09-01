@@ -41,6 +41,10 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   if (!await verifySaSession()) return Response.json({ error: 'No autorizado' }, { status: 401 })
   const body = await req.json()
+  // .eq('id', undefined) no es un error para Postgrest (manda "id=eq.undefined", que no matchea
+  // ninguna fila) — sin este chequeo, un caller que olvide `id` recibía {ok:true} con cero filas
+  // tocadas en vez de un 400 claro.
+  if (typeof body.id !== 'string' || !body.id) return Response.json({ error: 'Falta id' }, { status: 400 })
   const patch: Record<string, unknown> = {}
   if (body.price !== undefined)                   patch.price                    = body.price
   if (body.maxUsers !== undefined)                patch.max_users                = body.maxUsers

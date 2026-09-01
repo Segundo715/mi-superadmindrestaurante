@@ -3,13 +3,22 @@ import { NextRequest } from 'next/server'
 
 import { verifySaSession } from '@/lib/saAuth'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
-import { toRestaurant } from '@/lib/mapRestaurant'
+import { toRestaurant, PROVISIONING_SENTINEL } from '@/lib/mapRestaurant'
 import { logAudit } from '@/lib/audit'
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   if (!await verifySaSession()) return Response.json({ error: 'No autorizado' }, { status: 401 })
   const { id } = await ctx.params
   const body = await req.json()
+  // repo_name/deploy_url también son el "candado" que provision-client usa para evitar
+  // aprovisionar dos veces (ver PROVISIONING_SENTINEL en lib/mapRestaurant.ts) — un PATCH
+  // arbitrario nunca debería poder escribir ese valor centinela a mano (quedaría atascado
+  // fingiendo un aprovisionamiento en curso que nunca termina) ni tampoco poner cualquiera de
+  // los dos en null mientras el otro sigue siendo un candado activo, o liberaría la reserva de
+  // otra solicitud en curso.
+  if (body.repoName === PROVISIONING_SENTINEL || body.deployUrl === PROVISIONING_SENTINEL) {
+    return Response.json({ error: 'Valor reservado, no se puede asignar a mano' }, { status: 400 })
+  }
   const patch: Record<string, unknown> = {}
   if (body.status !== undefined)              patch.status               = body.status
   if (body.plan !== undefined)                patch.plan                 = body.plan

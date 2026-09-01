@@ -554,10 +554,14 @@ function Restaurants({
             ))}
             <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)", fontSize: ".86rem" }}>
               <span style={{ color: "var(--text-secondary)" }}>Instancia</span>
-              {selected.repoName ? (
+              {selected.deployUrl ? (
                 <a href={selected.deployUrl} target="_blank" rel="noreferrer" style={{ fontWeight: 600, color: "var(--accent)" }}>
                   {selected.repoOwner}/{selected.repoName} ↗
                 </a>
+              ) : selected.repoName ? (
+                // Repo creado pero el deploy todavía no (aprovisionamiento a medias, reanudable
+                // con el botón de abajo) — sin deployUrl no hay a dónde enlazar todavía.
+                <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{selected.repoOwner}/{selected.repoName} (repo creado, sin deploy)</span>
               ) : (
                 <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>Sin aprovisionar</span>
               )}
@@ -797,7 +801,7 @@ function UpgradePlanModal({ restaurant, planConfigs, onClose, onDone, showToast 
 
 type ProvisionPreview = {
   ok: boolean; error?: string;
-  template?: string; newRepo?: string; restaurantId?: string;
+  template?: string; newRepo?: string; restaurantId?: string; resuming?: boolean;
   envVarsToSet?: string[]; githubTokenConfigured?: boolean; vercelTokenConfigured?: boolean;
   warnings?: string[];
 };
@@ -857,7 +861,11 @@ function ProvisionModal({ restaurant, onClose, onDone, showToast }: {
       {preview && preview.ok && (
         <div>
           <div style={{ fontSize: ".84rem", marginBottom: "10px", color: "var(--text-secondary)" }}>
-            Se creará el repo <strong style={{ color: "var(--text-primary)" }}>{preview.newRepo}</strong> (plantilla: {preview.template})
+            {preview.resuming ? (
+              <>Repo ya creado en un intento anterior — <strong style={{ color: "var(--text-primary)" }}>{preview.newRepo}</strong>. Solo falta crear el proyecto de Vercel.</>
+            ) : (
+              <>Se creará el repo <strong style={{ color: "var(--text-primary)" }}>{preview.newRepo}</strong> (plantilla: {preview.template})</>
+            )}
             {" "}y un proyecto de Vercel apuntando a él, con <code>NEXT_PUBLIC_RESTAURANT_ID = {preview.restaurantId}</code>.
           </div>
 
@@ -2286,24 +2294,27 @@ function Notifications({ showToast }: { showToast: (msg: string, type?: Toast["t
   useEffect(() => { load(); }, []);
 
   async function markRead(id: string, source: Ticket["source"]) {
-    await fetch("/api/superadmin/tickets", {
+    const res = await fetch("/api/superadmin/tickets", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, source }),
-    });
+    }).catch(() => null);
+    if (!res || !res.ok) { showToast("No se pudo marcar como leído — reintenta", "error"); return; }
     // Compara también `source`: los tickets vienen fusionados de dos BDs distintas (main/portales)
     // y comparar solo por id arriesgaría marcar dos tickets a la vez si algún día coincidiera el id.
     setTickets(t => t.map(x => x.id === id && x.source === source ? { ...x, read: true } : x));
   }
 
   async function markAllRead() {
-    await fetch("/api/superadmin/tickets", { method: "PUT" });
+    const res = await fetch("/api/superadmin/tickets", { method: "PUT" }).catch(() => null);
+    if (!res || !res.ok) { showToast("No se pudo marcar todos como leídos — reintenta", "error"); return; }
     setTickets(t => t.map(x => ({ ...x, read: true })));
     showToast("Todos marcados como leídos");
   }
 
   async function deleteTicket(id: string, source: Ticket["source"]) {
-    await fetch(`/api/superadmin/tickets?id=${id}&source=${source}`, { method: "DELETE" });
+    const res = await fetch(`/api/superadmin/tickets?id=${id}&source=${source}`, { method: "DELETE" }).catch(() => null);
+    if (!res || !res.ok) { showToast("No se pudo eliminar el reporte — reintenta", "error"); return; }
     setTickets(t => t.filter(x => !(x.id === id && x.source === source)));
     showToast("Reporte eliminado");
   }
@@ -2438,7 +2449,9 @@ function Permisos({ restaurants, addAudit, showToast }: {
     // éxito sin que el cambio tuviera ningún efecto real en ese restaurante.
     const isIndividualRestaurant = !isPortales && sel !== CONNECTED_RESTAURANT && sel !== "all";
     if (isIndividualRestaurant) {
+      const ctxName = restaurants.find((r) => r.id === sel)?.name ?? sel;
       showToast(`Los permisos por restaurante individual todavía no se guardan — usa "Todos los restaurantes" o Portales`, "error");
+      addAudit(`Permiso ${next ? "activado" : "desactivado"} (solo visual, no guardado)`, `${m.name} → ${ctxName}`, "update", ctxName);
       return;
     }
 

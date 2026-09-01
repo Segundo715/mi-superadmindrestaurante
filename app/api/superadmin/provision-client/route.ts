@@ -86,16 +86,25 @@ export async function POST(req: NextRequest) {
 
   const { data: restaurant, error: rErr } = await supabase.from('sa_restaurants').select('*').eq('id', restaurantPk).single()
   if (rErr || !restaurant) return Response.json({ error: 'Restaurante no encontrado' }, { status: 404 })
-  // Si ya tiene repo_name pero no deploy_url, es un aprovisionamiento previo que creó el repo pero
-  // falló al crear el proyecto de Vercel — se puede reanudar desde ahí en vez de quedar bloqueado
-  // para siempre (antes, cualquier repo_name presente rechazaba todo intento nuevo).
-  const resuming = !!restaurant.repo_name && restaurant.repo_name !== PROVISIONING_SENTINEL && !restaurant.deploy_url
-  if (restaurant.repo_name && restaurant.repo_name !== PROVISIONING_SENTINEL && restaurant.deploy_url) {
+  // Clasifica el estado real de la fila en un solo lugar (repo_name/deploy_url pueden ser: vacíos,
+  // el valor centinela de una reserva en curso, o un valor real) — antes esto eran varios chequeos
+  // sueltos que repetían la misma comparación con PROVISIONING_SENTINEL cada vez.
+  const hasRealRepo = !!restaurant.repo_name && restaurant.repo_name !== PROVISIONING_SENTINEL
+  const hasRealDeploy = !!restaurant.deploy_url && restaurant.deploy_url !== PROVISIONING_SENTINEL
+  const provisioningState: 'new' | 'claimed' | 'resumable' | 'resuming' | 'done' =
+    restaurant.repo_name === PROVISIONING_SENTINEL ? 'claimed'
+    : hasRealRepo && restaurant.deploy_url === PROVISIONING_SENTINEL ? 'resuming'
+    : hasRealRepo && hasRealDeploy ? 'done'
+    : hasRealRepo ? 'resumable'
+    : 'new'
+
+  if (provisioningState === 'done') {
     return Response.json({ error: `Este restaurante ya tiene una instancia aprovisionada (${restaurant.repo_owner}/${restaurant.repo_name})` }, { status: 400 })
   }
-  if (restaurant.repo_name === PROVISIONING_SENTINEL) {
+  if (provisioningState === 'claimed' || provisioningState === 'resuming') {
     return Response.json({ error: 'Este restaurante ya se está aprovisionando — espera a que termine.' }, { status: 409 })
   }
+  const resuming = provisioningState === 'resumable'
   if (!restaurant.product_id) return Response.json({ error: 'El restaurante no tiene producto asignado — asígnale un plan primero' }, { status: 400 })
 
   const { data: product } = await supabase.from('sa_products').select('*').eq('id', restaurant.product_id).maybeSingle()
@@ -143,8 +152,20 @@ export async function POST(req: NextRequest) {
 
   if (resuming) {
     // El repo ya existe de un intento previo (falló solo el paso de Vercel) — no se vuelve a
-    // generar, se reutiliza tal cual quedó guardado. No hace falta el claim atómico aquí: no hay
-    // repo_name=null que reservar, y el nombre de proyecto en Vercel ya es único por sí mismo.
+    // generar, se reutiliza tal cual quedó guardado. Mismo patrón de claim atómico que abajo pero
+    // sobre deploy_url (repo_name ya no está en null aquí): sin esto, dos "Reanudar" simultáneos
+    // llamarían a Vercel dos veces con el mismo nombre de proyecto — Vercel lo rechazaría igual
+    // por nombre duplicado, pero como un 502 crudo en vez del 409 amigable que da el resto de casos.
+    const { data: claimedResume, error: claimResumeErr } = await supabase
+      .from('sa_restaurants')
+      .update({ deploy_url: PROVISIONING_SENTINEL })
+      .eq('id', restaurantPk)
+      .is('deploy_url', null)
+      .select('id')
+      .maybeSingle()
+    if (claimResumeErr) return Response.json({ error: claimResumeErr.message }, { status: 500 })
+    if (!claimedResume) return Response.json({ error: 'Este restaurante ya se está aprovisionando (o ya tiene instancia) — espera a que termine o revisa su detalle.' }, { status: 409 })
+
     repoResult = {
       ok: true,
       fullName: `${restaurant.repo_owner}/${restaurant.repo_name}`,
@@ -204,8 +225,10 @@ export async function POST(req: NextRequest) {
     envVars,
   })
   if (!projectResult.ok) {
-    // El repo ya se creó — se deja así (no se borra solo) y se reporta para que se revise a mano;
-    // reintentar solo la parte de Vercel más adelante es más seguro que borrar infraestructura sola.
+    // El repo ya se creó (o ya existía, si se estaba reanudando) — se deja así (no se borra solo)
+    // y se reporta para que se revise a mano. Si se estaba reanudando, libera el claim sobre
+    // deploy_url para que un siguiente intento de "Reanudar" no quede bloqueado con un 409.
+    if (resuming) await supabase.from('sa_restaurants').update({ deploy_url: null }).eq('id', restaurantPk)
     return Response.json({
       error: `Repo creado (${repoResult.htmlUrl}) pero falló crear el proyecto en Vercel: ${projectResult.error}`,
       repoCreated: repoResult.htmlUrl,

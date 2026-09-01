@@ -43,11 +43,13 @@ function calcTotalsFromCortes(cortes: Record<string, unknown>[], since: Date) {
 
 const APPS = [
   // Nicho: BD compartida, filtra por restaurant_id='default'
-  { id: 'default',  name: 'Nicho (mi-proyecto)', db: supabaseAdmin,   ridFilter: 'default',  corteKey: 'cortes_historial',  type: 'orders' as const },
-  // Portales: BD propia, todas las órdenes son de portales (sin filtro de rid)
-  { id: 'portales', name: 'Portales',             db: supabasePortales, ridFilter: 'default', corteKey: 'cortes_historial',  type: 'orders' as const },
+  { id: 'default',  name: 'Nicho (mi-proyecto)', db: supabaseAdmin,   ridFilter: 'default' as string | null, corteKey: 'cortes_historial',  type: 'orders' as const },
+  // Portales: BD propia, todas las órdenes son de portales — sin filtro de rid (antes se filtraba
+  // igual que Nicho por 'restaurant_id'='default', contradiciendo este mismo comentario; si algún
+  // pedido de portales tuviera un restaurant_id distinto a 'default' se excluía en silencio).
+  { id: 'portales', name: 'Portales',             db: supabasePortales, ridFilter: null as string | null, corteKey: 'cortes_historial',  type: 'orders' as const },
   // Resta3: cortes del Nicho (comparte BD con Nicho)
-  { id: 'resta3',   name: 'Resta3',               db: supabaseAdmin,   ridFilter: 'default',  corteKey: 'cortes_historial',  type: 'resta3' as const },
+  { id: 'resta3',   name: 'Resta3',               db: supabaseAdmin,   ridFilter: 'default' as string | null, corteKey: 'cortes_historial',  type: 'resta3' as const },
 ]
 
 export async function GET() {
@@ -63,18 +65,22 @@ export async function GET() {
         .from('settings').select('value').eq('key', app.corteKey).limit(1)
 
       const historialRow = Array.isArray(historialRows) ? historialRows[0] : historialRows
-      const historial = parseHistorial(historialRow?.value).slice(-50).reverse()
+      // Antes: .slice(-50) ANTES de filtrar por fecha — si el restaurante tenía más de 50 cortes
+      // en total Y más de 50 en el mes en curso, los cortes más viejos del mes quedaban fuera de
+      // esa ventana de 50 y nunca se sumaban a monthTotals, subcontando el mes sin ningún aviso.
+      // calcTotalsFromCortes no depende del orden (solo filtra por fecha), así que tampoco hacía
+      // falta revertir y volver a revertir el arreglo para calcular los totales.
+      const historial = parseHistorial(historialRow?.value)
+      const todayTotals = calcTotalsFromCortes(historial, today)
+      const monthTotals = calcTotalsFromCortes(historial, monthStart)
 
-      const todayTotals = calcTotalsFromCortes([...historial].reverse(), today)
-      const monthTotals = calcTotalsFromCortes([...historial].reverse(), monthStart)
-
-      return { id: app.id, name: app.name, today: todayTotals, month: monthTotals, historial: historial.slice(0, 15) }
+      return { id: app.id, name: app.name, today: todayTotals, month: monthTotals, historial: historial.slice(-15).reverse() }
     }
 
+    let ordersQuery = app.db.from('orders').select('total, notes, created_at').gte('created_at', monthStart.toISOString())
+    if (app.ridFilter) ordersQuery = ordersQuery.eq('restaurant_id', app.ridFilter)
     const [{ data: orders }, { data: historialRows }] = await Promise.all([
-      app.db.from('orders').select('total, notes, created_at')
-        .eq('restaurant_id', app.ridFilter)
-        .gte('created_at', monthStart.toISOString()),
+      ordersQuery,
       app.db.from('settings').select('value').eq('key', app.corteKey).limit(1),
     ])
 

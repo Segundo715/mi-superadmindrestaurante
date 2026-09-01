@@ -36,7 +36,8 @@ export async function PATCH(req: NextRequest) {
   if (!id) return Response.json({ error: 'id requerido' }, { status: 400 })
 
   const db = source === 'portales' ? supabasePortales : supabaseAdmin
-  await db.from('sa_tickets').update({ read: true }).eq('id', id)
+  const { error } = await db.from('sa_tickets').update({ read: true }).eq('id', id)
+  if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json({ ok: true })
 }
 
@@ -49,7 +50,8 @@ export async function DELETE(req: NextRequest) {
   if (!id) return Response.json({ error: 'id requerido' }, { status: 400 })
 
   const db = source === 'portales' ? supabasePortales : supabaseAdmin
-  await db.from('sa_tickets').delete().eq('id', id)
+  const { error } = await db.from('sa_tickets').delete().eq('id', id)
+  if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json({ ok: true })
 }
 
@@ -57,9 +59,10 @@ export async function PUT(req: NextRequest) {
   if (!(await verifySaSession()))
     return Response.json({ error: 'No autorizado' }, { status: 401 })
 
-  await Promise.all([
+  const [{ error: e1 }, { error: e2 }] = await Promise.all([
     supabaseAdmin.from('sa_tickets').update({ read: true }).eq('read', false),
     supabasePortales.from('sa_tickets').update({ read: true }).eq('read', false),
   ])
+  if (e1 || e2) return Response.json({ error: (e1 ?? e2)?.message }, { status: 500 })
   return Response.json({ ok: true })
 }

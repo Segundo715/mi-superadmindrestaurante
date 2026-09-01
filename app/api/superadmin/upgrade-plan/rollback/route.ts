@@ -41,7 +41,12 @@ export async function POST(req: NextRequest) {
   const { error: uErr } = await supabase.from('sa_restaurants').update(restore).eq('id', migration.restaurant_pk)
   if (uErr) return Response.json({ error: uErr.message }, { status: 500 })
 
-  await supabase.from('sa_migrations').update({ status: 'rolled_back', finished_at: new Date().toISOString() }).eq('id', migration.id)
+  // sa_restaurants ya se restauró (arriba) — eso es lo que importa de verdad. Pero si este UPDATE
+  // falla, la migración se queda sin marcar 'rolled_back' y el chequeo de la línea 17 no la
+  // bloquearía en un segundo intento (restaurar el mismo snapshot dos veces es inofensivo, pero
+  // mejor avisar que el registro de la migración quedó inconsistente en vez de reportar éxito
+  // silencioso).
+  const { error: closeErr } = await supabase.from('sa_migrations').update({ status: 'rolled_back', finished_at: new Date().toISOString() }).eq('id', migration.id)
   await logAudit({
     restaurant: (before.name as string) ?? '—',
     action: 'Cambio de plan revertido',
@@ -49,5 +54,5 @@ export async function POST(req: NextRequest) {
     type: 'billing',
   })
 
-  return Response.json({ ok: true })
+  return Response.json({ ok: true, warning: closeErr ? `El restaurante se restauró, pero no se pudo cerrar el registro de la migración: ${closeErr.message}` : undefined })
 }

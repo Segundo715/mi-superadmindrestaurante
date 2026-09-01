@@ -182,7 +182,13 @@ export async function POST(req: NextRequest) {
     steps: JSON.stringify([...steps, { step: 'update:restaurant', status: 'ok' }, { step: 'audit', status: 'ok' }]),
     finished_at: new Date().toISOString(),
   }).eq('id', migration.id)
-  if (finishErr) console.error(`[upgrade-plan] no se pudo cerrar sa_migrations ${migration.id} (quedará bloqueando futuros cambios de plan para este restaurante):`, finishErr.message)
+  if (finishErr) {
+    console.error(`[upgrade-plan] no se pudo cerrar sa_migrations ${migration.id} (quedará bloqueando futuros cambios de plan para este restaurante):`, finishErr.message)
+    // No solo el log del servidor — el admin ya recibe `warnings` en la respuesta y el toast del
+    // frontend ya lo muestra (ver Billing.applyPlanChange/Plans.applyAssign), así que esto no se
+    // pierde silenciosamente como antes.
+    warnings.push(`El cambio de plan se aplicó, pero no se pudo cerrar el registro de la migración — si un próximo cambio de plan para este restaurante da "ya hay un cambio en curso", avisa para revisar sa_migrations a mano (id: ${migration.id}).`)
+  }
 
   await logAudit({
     user: appliedBy,

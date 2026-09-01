@@ -35,7 +35,8 @@ export function toRestaurant(r: Record<string, unknown>) {
     repoName: r.repo_name === PROVISIONING_SENTINEL ? null : r.repo_name,
     repoBranch: r.repo_branch,
     repoUrl: r.repo_url,
-    deployUrl: r.deploy_url,
+    // deploy_url también se usa como claim (reanudar aprovisionamiento) — mismo motivo que repo_name.
+    deployUrl: r.deploy_url === PROVISIONING_SENTINEL ? null : r.deploy_url,
     vercelProjectId: r.vercel_project_id,
     vercelTeamId: r.vercel_team_id,
     previousPlan: r.previous_plan,
