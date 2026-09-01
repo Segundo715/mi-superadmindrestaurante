@@ -228,3 +228,11 @@ CLAUDE.md,CONTEXT.md
 app/api/superadmin/audit/route.ts,app/api/superadmin/upgrade-plan/route.ts,app/superadmin/components/SuperAdmin.tsx,lib/audit.ts
 
 ---
+
+## 2026-09-01 — Tuesday
+
+### 10:24 AM — main
+**fix: corregir los últimos 3 bugs pendientes de la revisión**
+app/api/superadmin/provision-client/route.ts,app/superadmin/components/SuperAdmin.tsx,lib/fleetCheck.ts,lib/mapRestaurant.ts
+
+---
