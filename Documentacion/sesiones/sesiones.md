@@ -260,3 +260,11 @@ CLAUDE.md,CONTEXT.md,Documentacion/indice.md
 app/api/superadmin/plans/route.ts,app/api/superadmin/provision-client/route.ts,app/api/superadmin/restaurants/[id]/route.ts,app/api/superadmin/revenue/route.ts,app/api/superadmin/tickets/route.ts,app/api/superadmin/upgrade-plan/rollback/route.ts,app/api/superadmin/upgrade-plan/route.ts,app/superadmin/components/SuperAdmin.tsx
 
 ---
+
+## 2026-09-01 — Tuesday
+
+### 11:49 AM — main
+**perf: eliminar consulta duplicada en /api/superadmin/revenue**
+app/api/superadmin/revenue/route.ts
+
+---
