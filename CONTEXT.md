@@ -12,6 +12,8 @@ Panel de control global de la plataforma **NICHO**. Desde aquí el Super Admin (
 >
 > **2026-08-31 (cont.):** iconos SVG planos en `/sa-login` (ya no quedan emojis en el dashboard) y un fix de rendimiento en `/card` de **mi-card** (repo hermano) — el logo del negocio ya no tarda en aparecer. Aplicado en la plantilla y en la instancia real ya provisionada; detalle completo en `CLAUDE.md`.
 >
+> **2026-09-01 (cont.):** cuarta revisión de código (más fixes) y un hallazgo de infraestructura sin resolver: `tickets`/`revenue` tardan ~7-8s en producción por un probable desajuste de región entre Vercel y el proyecto de Supabase de Portales — documentado en `CLAUDE.md`, no se tocó nada de infraestructura por decisión del usuario.
+>
 > **2026-09-01:** tercera revisión de código (10 fixes más) — incluye un hueco de seguridad más (`GET /api/save-flags` sin sesión), repos de cliente que se creaban públicos por accidente, y aprovisionamiento que ya puede reanudarse si falla a medias. También quedó documentado que **los flags/permisos por restaurante individual nunca funcionaron de verdad** (seleccionar un restaurante y togglear algo no tenía efecto real, solo parecía guardarse) — ahora se avisa en vez de fingir éxito, pero implementarlo de verdad sigue pendiente. Detalle completo en `CLAUDE.md`.
 
 ## Stack tecnológico
