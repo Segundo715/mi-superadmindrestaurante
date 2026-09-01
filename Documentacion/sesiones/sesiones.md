@@ -236,3 +236,11 @@ app/api/superadmin/audit/route.ts,app/api/superadmin/upgrade-plan/route.ts,app/s
 app/api/superadmin/provision-client/route.ts,app/superadmin/components/SuperAdmin.tsx,lib/fleetCheck.ts,lib/mapRestaurant.ts
 
 ---
+
+## 2026-09-01 — Tuesday
+
+### 10:53 AM — main
+**fix: tercera revisión de código — 10 bugs corregidos en todo el proyecto**
+app/api/public/register/route.ts,app/api/save-flags/route.ts,app/api/superadmin/provision-client/route.ts,app/api/superadmin/restaurants/[id]/route.ts,app/api/superadmin/upgrade-plan/route.ts,app/superadmin/components/SuperAdmin.tsx,lib/githubProvision.ts
+
+---
