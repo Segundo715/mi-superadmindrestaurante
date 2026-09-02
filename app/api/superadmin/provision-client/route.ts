@@ -199,21 +199,33 @@ export async function POST(req: NextRequest) {
       private: true,
     })
     if (!repoResult.ok) {
-      // Nada se creó — libera el claim para que se pueda reintentar sin quedar bloqueado.
-      await supabase.from('sa_restaurants').update({ repo_name: null }).eq('id', restaurantPk)
-      return Response.json({ error: `No se pudo crear el repo: ${repoResult.error}` }, { status: 502 })
+      // Nada se creó — libera el claim para que se pueda reintentar sin quedar bloqueado. Si este
+      // UPDATE mismo falla, no hay mucho más que hacer que avisar — el error original (por qué
+      // falló crear el repo) sigue siendo la causa real, esto es un aviso adicional.
+      const { error: releaseErr } = await supabase.from('sa_restaurants').update({ repo_name: null }).eq('id', restaurantPk)
+      const extra = releaseErr ? ` (además, no se pudo liberar la reserva: ${releaseErr.message} — revisar sa_restaurants a mano)` : ''
+      return Response.json({ error: `No se pudo crear el repo: ${repoResult.error}${extra}` }, { status: 502 })
     }
 
     // El repo ya existe de verdad — se confirma repo_name/url/branch ANTES de intentar Vercel, así
     // si falla el siguiente paso el registro ya refleja que el repo es real (no se libera el claim:
     // reintentar crearía un repo duplicado, GitHub /generate rechazaría con 422 "already exists").
     // Además deja repo_name en un estado "resumible" (deploy_url sigue null) para el próximo intento.
-    await supabase.from('sa_restaurants').update({
+    // Si ESTE write falla, repo_name se queda atascado en el centinela para siempre (provisioningState
+    // nunca deja de ser 'claimed') con un repo real ya creado y sin forma de asociarlo — se corta
+    // aquí en vez de seguir a Vercel con un estado que la BD nunca podrá reflejar.
+    const { error: confirmErr } = await supabase.from('sa_restaurants').update({
       repo_owner: TEMPLATE_OWNER,
       repo_name: repoName,
       repo_branch: repoResult.defaultBranch,
       repo_url: repoResult.htmlUrl,
     }).eq('id', restaurantPk)
+    if (confirmErr) {
+      return Response.json({
+        error: `Repo creado (${repoResult.htmlUrl}) pero no se pudo guardar en la base de datos: ${confirmErr.message}. Revisa sa_restaurants a mano — el repo ya existe en GitHub.`,
+        repoCreated: repoResult.htmlUrl,
+      }, { status: 500 })
+    }
   }
 
   const projectResult = await createClientProject({
@@ -228,9 +240,13 @@ export async function POST(req: NextRequest) {
     // El repo ya se creó (o ya existía, si se estaba reanudando) — se deja así (no se borra solo)
     // y se reporta para que se revise a mano. Si se estaba reanudando, libera el claim sobre
     // deploy_url para que un siguiente intento de "Reanudar" no quede bloqueado con un 409.
-    if (resuming) await supabase.from('sa_restaurants').update({ deploy_url: null }).eq('id', restaurantPk)
+    let releaseExtra = ''
+    if (resuming) {
+      const { error: releaseErr } = await supabase.from('sa_restaurants').update({ deploy_url: null }).eq('id', restaurantPk)
+      if (releaseErr) releaseExtra = ` (además, no se pudo liberar la reserva para reintentar: ${releaseErr.message})`
+    }
     return Response.json({
-      error: `Repo creado (${repoResult.htmlUrl}) pero falló crear el proyecto en Vercel: ${projectResult.error}`,
+      error: `Repo creado (${repoResult.htmlUrl}) pero falló crear el proyecto en Vercel: ${projectResult.error}${releaseExtra}`,
       repoCreated: repoResult.htmlUrl,
     }, { status: 502 })
   }

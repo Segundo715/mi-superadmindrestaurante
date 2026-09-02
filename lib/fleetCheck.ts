@@ -3,6 +3,7 @@
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getLatestDeployment } from '@/lib/vercelApi'
 import { getLatestCommit } from '@/lib/githubApi'
+import { PROVISIONING_SENTINEL } from '@/lib/mapRestaurant'
 
 const HTTP_TIMEOUT_MS = 8000
 
@@ -60,8 +61,13 @@ export async function checkOneRestaurant(
   // formada (ej. "https://x.vercel.apphealth") en vez de caer al "/" por defecto.
   const rawHealthPath = product?.health_path?.trim()
   const healthPath = rawHealthPath ? (rawHealthPath.startsWith('/') ? rawHealthPath : `/${rawHealthPath}`) : '/'
-  const httpPromise = restaurant.deploy_url
-    ? healthCheckHttp(restaurant.deploy_url.replace(/\/$/, '') + healthPath)
+  // deploy_url puede valer el centinela de reserva (PROVISIONING_SENTINEL) mientras
+  // provision-client está a medio "reanudar" — tratarlo como URL real generaba un fetch a
+  // '__provisioning__/...' (URL inválida) y eso se reportaba como health:'error' ("Instancia
+  // caída") para un restaurante que en realidad solo está siendo (re)aprovisionado, no caído.
+  const hasRealDeployUrl = !!restaurant.deploy_url && restaurant.deploy_url !== PROVISIONING_SENTINEL
+  const httpPromise = hasRealDeployUrl
+    ? healthCheckHttp(restaurant.deploy_url!.replace(/\/$/, '') + healthPath)
     : Promise.resolve(null)
 
   // 2. Vercel — solo si hay project id y VERCEL_TOKEN configurado (degrada solo, no lanza).
@@ -97,7 +103,7 @@ export async function checkOneRestaurant(
     row.http_error = h.error
   } else {
     row.http_ok = null
-    row.http_error = 'Sin deploy_url configurada'
+    row.http_error = restaurant.deploy_url === PROVISIONING_SENTINEL ? 'Instancia en proceso de aprovisionamiento' : 'Sin deploy_url configurada'
   }
 
   if (v) {

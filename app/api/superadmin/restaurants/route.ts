@@ -20,9 +20,16 @@ export async function POST(req: NextRequest) {
   const plan = body.plan ?? 'trial'
 
   // maxUsers y product_id salen del plan elegido (sa_plans), no de un switch hardcodeado.
-  const { data: planRow } = await supabase.from('sa_plans').select('max_users, product_id').eq('id', plan).maybeSingle()
-  const maxUsers = planRow?.max_users ?? 3
-  const productId = planRow?.product_id ?? 'mi-proyecto'
+  const { data: planRow, error: planErr } = await supabase.from('sa_plans').select('max_users, product_id').eq('id', plan).maybeSingle()
+  if (planErr) return Response.json({ error: planErr.message }, { status: 500 })
+  // Antes, un `plan` inexistente (typo, id de un plan ya borrado) caía en silencio a los defaults
+  // de abajo (maxUsers:3, productId:'mi-proyecto') pero el valor inválido de `plan` igual se
+  // guardaba tal cual en la fila — el restaurante quedaba con un plan que no existe en sa_plans,
+  // mostrando badge/precio en blanco en el dashboard hasta que alguien lo notara y lo corrigiera
+  // a mano. Mejor rechazar aquí con un 400 claro.
+  if (!planRow) return Response.json({ error: `El plan "${plan}" no existe en el catálogo` }, { status: 400 })
+  const maxUsers = planRow.max_users ?? 3
+  const productId = planRow.product_id ?? 'mi-proyecto'
 
   const { data, error } = await supabase.from('sa_restaurants').insert({
     name: body.name.trim(),

@@ -69,12 +69,15 @@ export async function GET(req: NextRequest) {
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
 
   // 'default' y 'resta3' comparten cliente (supabaseAdmin) Y clave ('cortes_historial') — son
-  // literalmente la misma fila de settings. Antes cada uno la pedía por separado (Promise.all las
-  // corría en paralelo, pero seguía siendo un round-trip a Supabase completo, redundante, sumado a
-  // la latencia total de la respuesta). Se pide una sola vez (si hace falta) y se comparte.
+  // literalmente la misma fila de settings. Se pide una sola vez (si hace falta) y se comparte.
+  // OJO: el query builder de supabase-js es un thenable perezoso, no una Promise cacheada — cada
+  // `await` sobre el MISMO builder sin resolver dispara su propio fetch HTTP nuevo. Un intento
+  // anterior de este mismo fix guardaba el builder sin awaitear y lo compartía tal cual, así que
+  // en realidad seguía pegándole a Supabase dos veces (una por cada `await sharedHistorialPromise`
+  // más abajo) — el "dedup" no deduplicaba nada. Awaitear aquí, una sola vez, en un Promise real.
   const needsSharedHistorial = apps.some(a => a.id === 'default' || a.id === 'resta3')
   const sharedHistorialPromise = needsSharedHistorial
-    ? supabaseAdmin.from('settings').select('value').eq('key', 'cortes_historial').limit(1)
+    ? Promise.resolve(supabaseAdmin.from('settings').select('value').eq('key', 'cortes_historial').limit(1))
     : null
 
   const results = await Promise.all(apps.map(async (app) => {

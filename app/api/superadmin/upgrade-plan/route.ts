@@ -40,10 +40,15 @@ export async function POST(req: NextRequest) {
   if (!toPlan) return Response.json({ error: `El plan destino "${targetPlanId}" no existe` }, { status: 400 })
   if (toPlan.active === false) return Response.json({ error: `El plan "${targetPlanId}" ya no está activo para venta` }, { status: 400 })
 
-  const [{ data: fromProduct }, { data: toProduct }] = await Promise.all([
-    fromPlan?.product_id ? supabase.from('sa_products').select('*').eq('id', fromPlan.product_id).maybeSingle() : Promise.resolve({ data: null }),
-    toPlan.product_id ? supabase.from('sa_products').select('*').eq('id', toPlan.product_id).maybeSingle() : Promise.resolve({ data: null }),
+  const [{ data: fromProduct, error: fromProductErr }, { data: toProduct, error: toProductErr }] = await Promise.all([
+    fromPlan?.product_id ? supabase.from('sa_products').select('*').eq('id', fromPlan.product_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    toPlan.product_id ? supabase.from('sa_products').select('*').eq('id', toPlan.product_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
   ])
+  // Mismo motivo que el chequeo de fromPlan/toPlan arriba: sin esto, un error transitorio aquí
+  // dejaba fromProduct/toProduct en undefined, fromTier caía a 99 (línea de abajo) y toProduct?.tier
+  // a 0 — la comparación de tiers se clasificaba como 'downgrade' aunque no lo fuera, bloqueando un
+  // cambio de plan legítimo con un mensaje que no menciona el error real de Supabase.
+  if (fromProductErr || toProductErr) return Response.json({ error: (fromProductErr ?? toProductErr)?.message }, { status: 500 })
 
   // Lock: pre-chequeo rápido para un mensaje de error amigable. La garantía real contra dos
   // migraciones 'running' simultáneas (doble-click, dos pestañas) es el índice único parcial
@@ -63,8 +68,13 @@ export async function POST(req: NextRequest) {
   // tier, así que nunca exigía acknowledgeDataLoss y podía dejar activos por encima del nuevo
   // límite sin ninguna advertencia. Se compara contra max_users del plan de origen Y contra los
   // usuarios activos reales del restaurante, lo que sea más estricto.
-  const sameProductDowngrade = sameProduct
-    && (toPlan.max_users < (fromPlan?.max_users ?? 0) || toPlan.max_users < (restaurant.users ?? 0))
+  // sa_plans.max_users es nullable en el esquema (sin NOT NULL) — la UI no deja crear un plan sin
+  // límite hoy, pero si algún día `null` se usa para representar "sin límite" (o una fila se edita
+  // a mano en SQL), `null < N` coerciona a `0 < N` en JS y siempre da true, clasificando cualquier
+  // asignación a un plan "ilimitado" como downgrade. Tratar null explícitamente como "sin límite".
+  const toMaxUsers = toPlan.max_users
+  const sameProductDowngrade = sameProduct && toMaxUsers != null
+    && (toMaxUsers < (fromPlan?.max_users ?? 0) || toMaxUsers < (restaurant.users ?? 0))
   const direction: 'upgrade' | 'downgrade' | 'billing_change' = sameProductDowngrade
     ? 'downgrade'
     : sameProduct

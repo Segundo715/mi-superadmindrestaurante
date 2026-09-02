@@ -2283,9 +2283,11 @@ const ROLE_COLOR: Record<string, string> = {
 function Notifications({ showToast }: { showToast: (msg: string, type?: Toast["type"]) => void }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingPortales, setLoadingPortales] = useState(true);
 
   async function load() {
     setLoading(true);
+    setLoadingPortales(true);
     // main (BD principal) responde rápido — no bloquear la vista esperando a portales, que
     // responde ~7s más lento desde Vercel (ver nota en CLAUDE.md). Se pide aparte y se agrega a
     // la lista en cuanto llega.
@@ -2293,8 +2295,17 @@ function Notifications({ showToast }: { showToast: (msg: string, type?: Toast["t
     setTickets(Array.isArray(main) ? main : []);
     setLoading(false);
     fetch("/api/superadmin/tickets?source=portales").then(r => r.json())
-      .then(portales => { if (Array.isArray(portales) && portales.length) setTickets(prev => [...prev, ...portales].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())) })
-      .catch(() => {});
+      .then(portales => {
+        // .filter + reemplazo (no append directo): si "Actualizar" se clickea de nuevo mientras
+        // este fetch de portales todavía está en curso, dos respuestas de portales terminan
+        // resolviendo por separado — antes cada una hacía [...prev, ...portales] sin condición,
+        // así que los tickets de portales se duplicaban en la lista con cada click de más.
+        if (Array.isArray(portales)) {
+          setTickets(prev => [...prev.filter(t => t.source !== "portales"), ...portales].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingPortales(false));
   }
 
   useEffect(() => { load(); }, []);
@@ -2336,7 +2347,7 @@ function Notifications({ showToast }: { showToast: (msg: string, type?: Toast["t
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
           {unread > 0 && <button className="sa-btn" onClick={markAllRead}>✓ Marcar todos leídos</button>}
-          <button className="sa-btn" onClick={load}>↺ Actualizar</button>
+          <button className="sa-btn" onClick={load} disabled={loading || loadingPortales}>↺ Actualizar</button>
         </div>
       </div>
 

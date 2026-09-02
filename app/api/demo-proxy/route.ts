@@ -29,15 +29,30 @@ export async function POST(req: Request) {
 
   const sessionToken = makeSession('superadmin-demo')
 
-  const upstream = await fetch(`${RESTO_URL}${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      // Cookie admin_session válida para los routes que requieren verifySession()
-      'Cookie': `admin_session=${sessionToken}`,
-    },
-    body: JSON.stringify(body ?? {}),
-  })
+  // Único fetch saliente del repo sin timeout (lib/externalFetch.ts ya centraliza este patrón
+  // para vercelApi/githubApi/*Provision, con 8s por defecto) — no se reusa tal cual porque este
+  // endpoint necesita reenviar el status/body crudo de mi-proyecto al navegador, no normalizarlo
+  // a {ok,data}. Si mi-proyecto (el demo real) se cuelga, esto se quedaba esperando indefinidamente.
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 8000)
+  let upstream: Response
+  try {
+    upstream = await fetch(`${RESTO_URL}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Cookie admin_session válida para los routes que requieren verifySession()
+        'Cookie': `admin_session=${sessionToken}`,
+      },
+      body: JSON.stringify(body ?? {}),
+      signal: controller.signal,
+    })
+  } catch (e) {
+    const isAbort = e instanceof Error && e.name === 'AbortError'
+    return Response.json({ error: isAbort ? 'El demo no respondió a tiempo' : 'Error de conexión con el demo' }, { status: 502 })
+  } finally {
+    clearTimeout(timeout)
+  }
 
   const data = await upstream.json().catch(() => ({}))
   return Response.json(data, { status: upstream.status })

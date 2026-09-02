@@ -19,6 +19,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (body.repoName === PROVISIONING_SENTINEL || body.deployUrl === PROVISIONING_SENTINEL) {
     return Response.json({ error: 'Valor reservado, no se puede asignar a mano' }, { status: 400 })
   }
+  // El chequeo de arriba solo bloquea ESCRIBIR el centinela — no evitaba pisar uno que YA está
+  // activo. Si provision-client dejó repo_name o deploy_url en PROVISIONING_SENTINEL mientras
+  // aprovisiona (~20s por paso), un PATCH concurrente a ese mismo campo (pestaña vieja, un form
+  // que manda repoName:null, un reintento) pasaba de largo y liberaba el candado a medio proceso —
+  // reabriendo exactamente la carrera de doble-aprovisionamiento que el claim atómico cierra en
+  // provision-client. Si el campo que se va a tocar está actualmente reservado, se rechaza.
+  if (body.repoName !== undefined || body.deployUrl !== undefined) {
+    const { data: current } = await supabase.from('sa_restaurants').select('repo_name, deploy_url').eq('id', id).maybeSingle()
+    if (current?.repo_name === PROVISIONING_SENTINEL || current?.deploy_url === PROVISIONING_SENTINEL) {
+      return Response.json({ error: 'Este restaurante se está aprovisionando ahora mismo — espera a que termine antes de editar repo/deploy.' }, { status: 409 })
+    }
+  }
   const patch: Record<string, unknown> = {}
   if (body.status !== undefined)              patch.status               = body.status
   if (body.plan !== undefined)                patch.plan                 = body.plan

@@ -8,6 +8,14 @@ import { NextRequest } from 'next/server'
 import { verifySaSession } from '@/lib/saAuth'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 
+// Sin try/catch, un solo `features` mal formado en sa_plans (fila tocada a mano en SQL, migración
+// vieja) tronaba JSON.parse y tumbaba TODO el catálogo — GET /api/superadmin/plans entero, no solo
+// ese plan — porque toPlan() corre dentro de un .map() sin aislar errores por fila.
+function parseFeatures(value: unknown): unknown {
+  if (typeof value !== 'string') return value
+  try { return JSON.parse(value) } catch { return [] }
+}
+
 function toPlan(r: Record<string, unknown>) {
   return {
     id: r.id,
@@ -16,7 +24,7 @@ function toPlan(r: Record<string, unknown>) {
     trialDays: r.trial_days,
     maxUsers: r.max_users,
     color: r.color,
-    features: typeof r.features === 'string' ? JSON.parse(r.features) : r.features,
+    features: parseFeatures(r.features),
     productId: r.product_id,
     billingMode: r.billing_mode,
     setupFee: r.setup_fee,
