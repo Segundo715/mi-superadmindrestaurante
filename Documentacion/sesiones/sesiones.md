@@ -308,3 +308,11 @@ CLAUDE.md,CONTEXT.md
 app/api/demo-proxy/route.ts,app/api/superadmin/plans/route.ts,app/api/superadmin/provision-client/route.ts,app/api/superadmin/restaurants/[id]/route.ts,app/api/superadmin/restaurants/route.ts,app/api/superadmin/revenue/route.ts,app/api/superadmin/upgrade-plan/route.ts,app/superadmin/components/SuperAdmin.tsx
 
 ---
+
+## 2026-09-03 — Thursday
+
+### 12:15 PM — main
+**feat: alertas por correo (Gmail SMTP) cuando una instancia cae**
+app/api/cron/fleet-refresh/route.ts,app/api/superadmin/test-alert/route.ts,lib/notify.ts,package-lock.json,package.json
+
+---
