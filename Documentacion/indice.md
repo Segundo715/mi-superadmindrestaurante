@@ -1,6 +1,6 @@
 # Índice de Documentación — mi-superadmindrestaurante (SuperAdmin NICHO)
 
-> Última actualización: 2026-09-01
+> Última actualización: 2026-09-03
 
 ---
 
