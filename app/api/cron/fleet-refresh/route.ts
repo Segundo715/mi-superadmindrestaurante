@@ -7,6 +7,7 @@ import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { checkOneRestaurant, type ProductRow } from '@/lib/fleetCheck'
 import { logAuditMany } from '@/lib/audit'
 import { runInPool } from '@/lib/pool'
+import { sendAlertEmail, alertEmailHtml } from '@/lib/notify'
 
 const BATCH_SIZE = 25
 const CONCURRENCY = 5
@@ -86,6 +87,19 @@ export async function GET(req: NextRequest) {
       details: String(r.health_reason ?? ''),
       type: 'access' as const,
     })))
+    // Primer disparador real de lib/notify.ts — antes una caída solo se veía si alguien entraba
+    // a "Flota" a mirar. Tolerante a fallos (no configurado, Gmail caído): no debe tumbar el cron.
+    await sendAlertEmail(
+      `⚠️ ${newlyDown.length} instancia${newlyDown.length > 1 ? 's' : ''} caída${newlyDown.length > 1 ? 's' : ''}`,
+      alertEmailHtml(
+        'Instancias caídas',
+        'El chequeo de flota detectó que las siguientes instancias dejaron de responder:',
+        newlyDown.map((r) => ({
+          name: restaurantById.get(r.restaurant_pk as string)?.name ?? String(r.restaurant_pk),
+          detail: String(r.health_reason ?? r.http_error ?? 'sin detalle'),
+        })),
+      ),
+    )
   }
 
   const counts = { ok: 0, warn: 0, error: 0, unknown: 0 }
