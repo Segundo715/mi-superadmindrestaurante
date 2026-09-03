@@ -316,3 +316,11 @@ app/api/demo-proxy/route.ts,app/api/superadmin/plans/route.ts,app/api/superadmin
 app/api/cron/fleet-refresh/route.ts,app/api/superadmin/test-alert/route.ts,lib/notify.ts,package-lock.json,package.json
 
 ---
+
+## 2026-09-03 — Thursday
+
+### 12:16 PM — main
+**docs: documentar feature de alertas por correo (Gmail SMTP)**
+CLAUDE.md,CONTEXT.md,Documentacion/indice.md
+
+---
