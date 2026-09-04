@@ -324,3 +324,11 @@ app/api/cron/fleet-refresh/route.ts,app/api/superadmin/test-alert/route.ts,lib/n
 CLAUDE.md,CONTEXT.md,Documentacion/indice.md
 
 ---
+
+## 2026-09-04 — Friday
+
+### 12:53 PM — main
+**fix: escapa HTML en correos de alerta, paraleliza cron, limpia lint**
+app/api/cron/fleet-refresh/route.ts,app/api/superadmin/tickets/route.ts,app/superadmin/components/SuperAdmin.tsx,lib/notify.ts
+
+---
