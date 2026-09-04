@@ -16,6 +16,8 @@ Panel de control global de la plataforma **NICHO**. Desde aquí el Super Admin (
 >
 > **2026-09-01 (cont. 2):** se corrigieron las 5 variantes de tarjeta restantes de mi-card (mismo fix de precarga de marca que `/card`), y se confirmó el estado de los 3 repos plantilla (mi-card, mi-menu, mi-proyecto) en GitHub — mi-card al día, mi-menu/mi-proyecto sin commits nuevos desde 2026-07-20 pero sin nada atascado a medio fusionar. Detalle completo en `CLAUDE.md`.
 >
+> **2026-09-04 (cont.):** séptima revisión de código de la sesión — primer barrido completo que no encontró nada real que corregir (los 2 candidatos que llegaron a verificación se descartaron). Detalle en `CLAUDE.md`.
+>
 > **2026-09-04:** sexta revisión de código de la sesión — 2 hallazgos corregidos (HTML sin escapar en el correo de alerta, cron corriendo en secuencial en vez de paralelo) y `npm run lint` limpiado del todo (llevaba tiempo sucio, ninguna revisión anterior lo había corrido). Detalle completo en `CLAUDE.md`.
 >
 > **2026-09-03:** primera feature nueva de la lista de mejoras: alertas por correo (Gmail SMTP vía `lib/notify.ts`) cuando una instancia de la flota cae — ver `CLAUDE.md` para el detalle y las variables de entorno pendientes de Vercel.
