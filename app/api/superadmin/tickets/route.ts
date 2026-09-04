@@ -74,7 +74,7 @@ export async function DELETE(req: NextRequest) {
   return Response.json({ ok: true })
 }
 
-export async function PUT(req: NextRequest) {
+export async function PUT() {
   if (!(await verifySaSession()))
     return Response.json({ error: 'No autorizado' }, { status: 401 })
 

@@ -80,26 +80,30 @@ export async function GET(req: NextRequest) {
   const newlyDown = rows.filter((r) => r.health === 'error' && previousHealthByPk.get(r.restaurant_pk as string) !== 'error')
   if (newlyDown.length > 0) {
     const restaurantById = new Map(restaurants.map((r) => [r.id, r]))
-    await logAuditMany(newlyDown.map((r) => ({
-      user: 'cron',
-      restaurant: restaurantById.get(r.restaurant_pk as string)?.name ?? String(r.restaurant_pk),
-      action: 'Instancia caída',
-      details: String(r.health_reason ?? ''),
-      type: 'access' as const,
-    })))
-    // Primer disparador real de lib/notify.ts — antes una caída solo se veía si alguien entraba
-    // a "Flota" a mirar. Tolerante a fallos (no configurado, Gmail caído): no debe tumbar el cron.
-    await sendAlertEmail(
-      `⚠️ ${newlyDown.length} instancia${newlyDown.length > 1 ? 's' : ''} caída${newlyDown.length > 1 ? 's' : ''}`,
-      alertEmailHtml(
-        'Instancias caídas',
-        'El chequeo de flota detectó que las siguientes instancias dejaron de responder:',
-        newlyDown.map((r) => ({
-          name: restaurantById.get(r.restaurant_pk as string)?.name ?? String(r.restaurant_pk),
-          detail: String(r.health_reason ?? r.http_error ?? 'sin detalle'),
-        })),
+    // Independientes entre sí (una escribe en Supabase, la otra manda SMTP) — en paralelo para no
+    // sumar sus latencias dentro del presupuesto de tiempo de la función serverless.
+    await Promise.all([
+      logAuditMany(newlyDown.map((r) => ({
+        user: 'cron',
+        restaurant: restaurantById.get(r.restaurant_pk as string)?.name ?? String(r.restaurant_pk),
+        action: 'Instancia caída',
+        details: String(r.health_reason ?? ''),
+        type: 'access' as const,
+      }))),
+      // Primer disparador real de lib/notify.ts — antes una caída solo se veía si alguien entraba
+      // a "Flota" a mirar. Tolerante a fallos (no configurado, Gmail caído): no debe tumbar el cron.
+      sendAlertEmail(
+        `⚠️ ${newlyDown.length} instancia${newlyDown.length > 1 ? 's' : ''} caída${newlyDown.length > 1 ? 's' : ''}`,
+        alertEmailHtml(
+          'Instancias caídas',
+          'El chequeo de flota detectó que las siguientes instancias dejaron de responder:',
+          newlyDown.map((r) => ({
+            name: restaurantById.get(r.restaurant_pk as string)?.name ?? String(r.restaurant_pk),
+            detail: String(r.health_reason ?? r.http_error ?? 'sin detalle'),
+          })),
+        ),
       ),
-    )
+    ])
   }
 
   const counts = { ok: 0, warn: 0, error: 0, unknown: 0 }

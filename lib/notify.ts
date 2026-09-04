@@ -46,8 +46,12 @@ export async function sendAlertEmail(subject: string, bodyHtml: string): Promise
   }
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 // Plantilla simple compartida — cada caller solo arma la lista de filas (nombre + detalle).
 export function alertEmailHtml(title: string, intro: string, items: { name: string; detail: string }[]): string {
-  const rows = items.map((i) => `<li><strong>${i.name}</strong> — ${i.detail}</li>`).join('')
-  return `<h2>${title}</h2><p>${intro}</p><ul>${rows}</ul><p style="color:#888;font-size:12px">NICHO Super Admin — mi-superadmindrestaurante.vercel.app</p>`
+  const rows = items.map((i) => `<li><strong>${escapeHtml(i.name)}</strong> — ${escapeHtml(i.detail)}</li>`).join('')
+  return `<h2>${escapeHtml(title)}</h2><p>${escapeHtml(intro)}</p><ul>${rows}</ul><p style="color:#888;font-size:12px">NICHO Super Admin — mi-superadmindrestaurante.vercel.app</p>`
 }

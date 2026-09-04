@@ -2308,6 +2308,9 @@ function Notifications({ showToast }: { showToast: (msg: string, type?: Toast["t
       .finally(() => setLoadingPortales(false));
   }
 
+  // Carga única al montar — el lint sugiere evitar setState síncrono en efectos, pero aquí no hay
+  // forma de calcular estos datos durante el render (vienen de fetch); es el patrón correcto.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, []);
 
   async function markRead(id: string, source: Ticket["source"]) {
@@ -2646,7 +2649,7 @@ function Solicitudes({ requests, setRequests, addAudit, showToast }: {
                     Solicita activar: <strong style={{ color: "var(--accent)", display: "inline-flex", alignItems: "center", gap: "4px" }}><Icon name="unlock" size={14} /> {r.feature}</strong>
                   </div>
                   <div style={{ fontSize: ".82rem", color: "var(--text-secondary)", marginBottom: "4px" }}>
-                    Razón: <em>"{r.reason}"</em>
+                    Razón: <em>&quot;{r.reason}&quot;</em>
                   </div>
                   <div style={{ fontSize: ".75rem", color: "var(--text-muted)" }}>
                     {r.requestedBy} · {r.ts}
@@ -2713,7 +2716,9 @@ function Seguridad({ restaurants, showToast, addAudit }: {
     }).catch(() => {})
   }, []);
 
+  // Selección por default en cuanto llega la lista de restaurantes (async) — no calculable en render.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!sel && restaurants.length > 0) setSel(restaurants[0].id)
   }, [restaurants, sel]);
 
@@ -3110,8 +3115,12 @@ function Dashboard({ onLogout, theme, toggleTheme }: { onLogout: () => void; the
   const [activeUser, setActiveUser]         = useState("Super Admin");
   const [unreadTickets, setUnreadTickets]   = useState(0);
 
+  // localStorage no existe en el render del servidor — hidratar activeUser (y cargar todo lo
+  // demás) tiene que pasar en un efecto, no se puede calcular durante el render sin desincronizar
+  // el HTML del servidor con el del cliente.
   useEffect(() => {
     const u = localStorage.getItem('sa_user')
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (u) setActiveUser(u.charAt(0).toUpperCase() + u.slice(1))
     // Carga inicial de todos los datos desde Supabase
     fetch('/api/superadmin/restaurants').then(r => r.json()).then(d => { if (Array.isArray(d)) setRestaurants(d) }).catch(() => {})
@@ -3265,9 +3274,11 @@ function Dashboard({ onLogout, theme, toggleTheme }: { onLogout: () => void; the
 export default function SuperAdmin() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
-  // Carga la preferencia guardada (o el esquema del sistema) al montar.
+  // Carga la preferencia guardada (o el esquema del sistema) al montar — localStorage/matchMedia
+  // no existen en el servidor, así que esto no se puede calcular durante el render.
   useEffect(() => {
     const saved = localStorage.getItem("sa_theme");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved === "dark" || saved === "light") setTheme(saved);
     else if (window.matchMedia("(prefers-color-scheme: light)").matches) setTheme("light");
   }, []);
