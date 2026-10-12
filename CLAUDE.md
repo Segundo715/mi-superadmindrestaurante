@@ -27,7 +27,7 @@ Panel monolítico para los dueños de NICHO (Jesús y Eloy). Permite:
 
 > ⚠️ Next.js 16 tiene cambios que rompen compatibilidad — ver AGENTS.md.
 
-### Cinco clientes Supabase
+### Seis clientes Supabase
 
 | Cliente | Archivo | BD | Uso |
 |---------|---------|-----|-----|
@@ -36,8 +36,18 @@ Panel monolítico para los dueños de NICHO (Jesús y Eloy). Permite:
 | `supabasePortales` | `lib/supabasePortales.ts` | Portales (qmtsetcqnovcahuimkvg) | Service role, BD propia de portales |
 | `supabaseMiMenu` | `lib/supabaseMiMenu.ts` | mi-menu (proyecto propio) | Service role, BD propia del producto mi-menu |
 | `supabaseMiCard` | `lib/supabaseMiCard.ts` | mi-card (proyecto propio) | Service role, BD propia del producto mi-card — **cliente listo en código, pero el proyecto Supabase todavía no existe** (ver nota abajo) |
+| `supabaseTejaban` | `lib/supabaseTejaban.ts` | El Tejaban (proyecto propio, URL pendiente) | Service role, BD propia de `mi-restaurantetejaban` — mismo patrón placeholder que mi-card; **sin `TEJABAN_*` no se usa** |
 
-Las variables `PORTALES_*` **solo existen en Vercel**; `MIMENU_*` y `MICARD_*` están **también en `.env.local`** para desarrollo local, no van todas en el mismo lugar.
+Las variables `PORTALES_*` **solo existen en Vercel**; `MIMENU_*` y `MICARD_*` están **también en `.env.local`** para desarrollo local, no van todas en el mismo lugar. `TEJABAN_*` todavía no existen en ningún lado.
+
+> **2026-10-12 — El Tejaban conectado.** Chip "El Tejaban" en Feature Flags y en Permisos.
+> Guarda `feature_flags_tejaban` (R1 + Resta3 juntos, igual que Portales), `employee_permissions_tejaban`
+> y `user_permissions_tejaban`. Hoy El Tejaban vive en la BD principal (`restaurant_id='tejaban'`)
+> y lee esas claves con sufijo, así que funciona sin configurar nada más. Para mudarlo a su BD propia:
+> 1. ⬜ Conseguir la URL del proyecto Supabase de El Tejaban (las llaves `sb_publishable_…`/`sb_secret_…` ya se tienen; ninguna coincide con las 5 BDs conocidas).
+> 2. ⬜ Crear el esquema allá (`settings` + tablas de negocio) y migrar los datos `tejaban` de la BD principal.
+> 3. ⬜ Poner `TEJABAN_SUPABASE_URL`/`TEJABAN_SERVICE_KEY` aquí (`.env.local` + Vercel) y las 3 vars de Supabase en `mi-restaurantetejaban`.
+> 4. ⬜ Migrar a mano las filas `*_tejaban` de `settings` → BD nueva sin sufijo (`resolveTarget()` no migra datos).
 
 > **2026-08-26 — separación de mi-card en curso, avanzó pero sigue sin completarse.** Hasta ahora mi-card compartía la BD principal con mi-proyecto (multi-tenant por `restaurant_id`, sin aislamiento real — riesgo #7 de `Documentacion/documentos/plan-multiproducto-y-flota-2026-08-21.md` §7.1). Estado real:
 > 1. ✅ Proyecto Supabase de mi-card creado (`bkwsinjckqupawckfpyu.supabase.co`, org "mi-carsegundo").
@@ -64,9 +74,10 @@ El endpoint `/api/save-flags` decide qué BD usar por el sufijo de la clave:
 - Claves que terminan en `_portales` → escribe en **BD portales** (sin el sufijo en la BD)
 - Claves que terminan en `_mimenu` → escribe en **BD mi-menu** (sin el sufijo en la BD)
 - Claves que terminan en `_micard` → escribe en **BD mi-card**, pero solo si `MICARD_SUPABASE_URL` está configurada; si no, cae al caso de abajo
-- Resto (incluye `feature_flags_micard` mientras no exista el proyecto de mi-card) → BD principal
+- Claves que terminan en `_tejaban` → escribe en **BD El Tejaban**, pero solo si `TEJABAN_SUPABASE_URL` y `TEJABAN_SERVICE_KEY` están configuradas; si no, cae al caso de abajo
+- Resto (incluye `feature_flags_micard`/`*_tejaban` mientras no exista su proyecto) → BD principal
 
-Claves usadas: `feature_flags`, `feature_flags_resta3`, `feature_flags_portales`, `feature_flags_mimenu`, `feature_flags_micard`, `employee_permissions`, `user_permissions`, `employee_permissions_portales`, `user_permissions_portales`
+Claves usadas: `feature_flags`, `feature_flags_resta3`, `feature_flags_portales`, `feature_flags_mimenu`, `feature_flags_micard`, `feature_flags_tejaban`, `employee_permissions`, `user_permissions`, `employee_permissions_portales`, `user_permissions_portales`, `employee_permissions_tejaban`, `user_permissions_tejaban`
 
 ### Tickets (sistema dual)
 
@@ -92,6 +103,8 @@ Todas en BD principal con prefijo `sa_`: `sa_restaurants`, `sa_audit_log`, `sa_d
 | `MIMENU_SUPABASE_ANON_KEY` | ✅ para **aprovisionar** clientes de mi-menu (ver nota abajo) | ⬜ falta en ambos — sacarla del dashboard de Supabase del proyecto de mi-menu |
 | `MICARD_SUPABASE_URL` | Para separar mi-card (ver nota arriba) | ✅ `.env.local` · ⬜ falta en Vercel |
 | `MICARD_SERVICE_KEY` | Para separar mi-card (ver nota arriba) | ✅ `.env.local` · ⬜ falta en Vercel |
+| `TEJABAN_SUPABASE_URL` | Para El Tejaban en BD propia (2026-10-12) | ⬜ falta en `.env.local` y Vercel — sin ella, las claves `_tejaban` se guardan en la BD principal con la clave completa |
+| `TEJABAN_SERVICE_KEY` | Igual que arriba (`sb_secret_…` del proyecto de El Tejaban) | ⬜ falta en `.env.local` y Vercel |
 | `ADMIN_SECRET` | ✅ | Compartido con mi-proyecto (demo proxy) |
 | `NICHO_REGISTER_KEY` | ✅ | Solo Vercel |
 | `VERCEL_TOKEN` | Para monitoreo de flota | **Solo Vercel** — access token del team de NICHO |

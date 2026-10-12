@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { supabasePortales } from '@/lib/supabasePortales'
 import { supabaseMiMenu } from '@/lib/supabaseMiMenu'
 import { supabaseMiCard } from '@/lib/supabaseMiCard'
+import { supabaseTejaban } from '@/lib/supabaseTejaban'
 import { verifySaSession } from '@/lib/saAuth'
 
 export const dynamic = 'force-dynamic'
@@ -34,6 +35,12 @@ function resolveTarget(key: string): { client: typeof supabaseAdmin; key: string
   }
   if (key.endsWith('_micard') && process.env.MICARD_SUPABASE_URL && process.env.MICARD_SERVICE_KEY) {
     return { client: supabaseMiCard, key: key.replace(/_micard$/, '') }
+  }
+  // El Tejaban: igual que mi-card. Sin TEJABAN_* cae a la BD principal con la clave completa
+  // (feature_flags_tejaban, employee_permissions_tejaban…), que es justo lo que mi-restaurantetejaban
+  // lee primero mientras siga en la BD compartida.
+  if (key.endsWith('_tejaban') && process.env.TEJABAN_SUPABASE_URL && process.env.TEJABAN_SERVICE_KEY) {
+    return { client: supabaseTejaban, key: key.replace(/_tejaban$/, '') }
   }
   return { client: supabaseAdmin, key }
 }

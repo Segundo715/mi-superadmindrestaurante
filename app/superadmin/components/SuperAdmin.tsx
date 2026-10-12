@@ -909,6 +909,7 @@ function FeatureFlags({
     FEATURES.forEach((f) => {
       init[`all_${f.id}`] = f.defaultEnabled;
       init[`portales_${f.id}`] = f.defaultEnabled;
+      init[`tejaban_${f.id}`] = f.defaultEnabled;
       restaurants.forEach((r) => { init[`${r.id}_${f.id}`] = f.defaultEnabled; });
     });
     return init;
@@ -922,6 +923,7 @@ function FeatureFlags({
   const CONNECTED_PORTALES   = "portales"; // mi-restauranteportales → feature_flags_portales (R1 + Resta3 juntos)
   const CONNECTED_MIMENU     = "mimenu";   // mi-menu → proyecto Supabase propio, feature_flags_mimenu
   const CONNECTED_MICARD     = "micard";   // mi-card → misma BD que Global, feature_flags_micard
+  const CONNECTED_TEJABAN    = "tejaban";  // mi-restaurantetejaban → feature_flags_tejaban (R1 + Resta3 juntos, como Portales)
 
   useEffect(() => {
     fetch("/api/save-flags?key=feature_flags")
@@ -980,6 +982,17 @@ function FeatureFlags({
           return next;
         });
       }).catch(() => {});
+    fetch("/api/save-flags?key=feature_flags_tejaban")
+      .then(r => r.json())
+      .then((saved: Record<string, boolean>) => {
+        setFlags(prev => {
+          const next = { ...prev };
+          FEATURES.forEach(f => {
+            next[`${CONNECTED_TEJABAN}_${f.id}`] = saved[f.id] ?? f.defaultEnabled;
+          });
+          return next;
+        });
+      }).catch(() => {});
   }, []);
 
   const k = (fid: string) => `${sel}_${fid}`;
@@ -987,6 +1000,7 @@ function FeatureFlags({
                 : sel === CONNECTED_PORTALES ? "Portales"
                 : sel === CONNECTED_MIMENU ? "mi-menu"
                 : sel === CONNECTED_MICARD ? "mi-card"
+                : sel === CONNECTED_TEJABAN ? "El Tejaban"
                 : restaurants.find((r) => r.id === sel)?.name ?? sel;
 
   const toggle = (fid: string, fname: string) => {
@@ -996,9 +1010,10 @@ function FeatureFlags({
     const isPortales = sel === CONNECTED_PORTALES;
     const isMiMenu   = sel === CONNECTED_MIMENU;
     const isMiCard   = sel === CONNECTED_MICARD;
-    const isResta3   = fid.startsWith("r3_") && !isMiMenu && !isMiCard;
+    const isTejaban  = sel === CONNECTED_TEJABAN;
+    const isResta3   = fid.startsWith("r3_") && !isMiMenu && !isMiCard && !isTejaban;
 
-    if (!isPortales && !isMiMenu && !isMiCard) {
+    if (!isPortales && !isMiMenu && !isMiCard && !isTejaban) {
       if (sel === CONNECTED_RESTAURANT) newFlags[`all_${fid}`] = next;
       if (sel === "all") newFlags[`${CONNECTED_RESTAURANT}_${fid}`] = next;
     }
@@ -1012,7 +1027,7 @@ function FeatureFlags({
     // restaurante, y de paso reescribía la clave global con datos que ya estaban ahí. Bloquear
     // aquí en vez de fingir que se guardó — falta implementar flags por restaurante individual
     // (requiere que mi-proyecto lea su propia clave por restaurant_id, no solo este panel).
-    const isIndividualRestaurant = !isPortales && !isMiMenu && !isMiCard && sel !== CONNECTED_RESTAURANT && sel !== "all";
+    const isIndividualRestaurant = !isPortales && !isMiMenu && !isMiCard && !isTejaban && sel !== CONNECTED_RESTAURANT && sel !== "all";
     if (isIndividualRestaurant) {
       showToast(`Los flags por restaurante individual todavía no se guardan — usa Global, Portales, mi-menu o mi-card`, "error");
       addAudit(`Feature flag ${next ? "activada" : "desactivada"} (solo visual, no guardado)`, `${fname} → ${selName}`, "update", selName);
@@ -1023,17 +1038,19 @@ function FeatureFlags({
     // Global guarda R1 en feature_flags y Resta3 en feature_flags_resta3.
     // mi-menu tiene su propio proyecto Supabase — feature_flags_mimenu.
     // mi-card comparte la BD de Global pero con su propio catálogo (3 módulos) — feature_flags_micard.
+    // El Tejaban guarda R1 + Resta3 juntos en feature_flags_tejaban, igual que Portales.
     const settingsKey = isPortales ? "feature_flags_portales"
+                      : isTejaban ? "feature_flags_tejaban"
                       : isMiMenu  ? "feature_flags_mimenu"
                       : isMiCard  ? "feature_flags_micard"
                       : isResta3  ? "feature_flags_resta3"
                       :              "feature_flags";
-    const featureList = isPortales ? FEATURES
+    const featureList = isPortales || isTejaban ? FEATURES
                       : isMiMenu  ? FEATURES_R1
                       : isMiCard  ? FEATURES_MICARD
                       : isResta3  ? FEATURES_RESTA3
                       :              FEATURES_R1;
-    const scopePrefix = isPortales ? CONNECTED_PORTALES : isMiMenu ? CONNECTED_MIMENU : isMiCard ? CONNECTED_MICARD : "all";
+    const scopePrefix = isPortales ? CONNECTED_PORTALES : isTejaban ? CONNECTED_TEJABAN : isMiMenu ? CONNECTED_MIMENU : isMiCard ? CONNECTED_MICARD : "all";
     const savedFlags: Record<string, boolean> = {};
     featureList.forEach((f) => { savedFlags[f.id] = newFlags[`${scopePrefix}_${f.id}`] ?? true; });
 
@@ -1109,6 +1126,7 @@ function FeatureFlags({
           <button key={r.id} className={`sa-chip${sel === r.id ? " active" : ""}`} onClick={() => setSel(r.id)}>{r.name}</button>
         ))}
         <button className={`sa-chip${sel === CONNECTED_PORTALES ? " active" : ""}`} onClick={() => setSel(CONNECTED_PORTALES)}><Icon name="store" size={13} /> Portales</button>
+        <button className={`sa-chip${sel === CONNECTED_TEJABAN ? " active" : ""}`} onClick={() => setSel(CONNECTED_TEJABAN)}><Icon name="store" size={13} /> El Tejaban</button>
       </div>
 
       {categories.map((cat) => (
@@ -2414,12 +2432,14 @@ function Permisos({ restaurants, addAudit, showToast }: {
   const key = (mid: string) => `${sel}_${mid}`;
   const CONNECTED_RESTAURANT = "r1";
   const CONNECTED_PORTALES   = "portales";
+  const CONNECTED_TEJABAN    = "tejaban";
 
   const [flags, setFlags] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     [...EMPLOYEE_MODULES, ...USER_MODULES].forEach((m) => {
       init[`all_${m.id}`] = !m.locked;
       init[`portales_${m.id}`] = !m.locked;
+      init[`tejaban_${m.id}`] = !m.locked;
       restaurants.forEach((r) => { init[`${r.id}_${m.id}`] = !m.locked; });
     });
     return init;
@@ -2431,7 +2451,9 @@ function Permisos({ restaurants, addAudit, showToast }: {
       fetch("/api/save-flags?key=user_permissions").then(r => r.json()),
       fetch("/api/save-flags?key=employee_permissions_portales").then(r => r.json()),
       fetch("/api/save-flags?key=user_permissions_portales").then(r => r.json()),
-    ]).then(([employee, user, empPortales, usrPortales]: [Record<string, boolean>, Record<string, boolean>, Record<string, boolean>, Record<string, boolean>]) => {
+      fetch("/api/save-flags?key=employee_permissions_tejaban").then(r => r.json()),
+      fetch("/api/save-flags?key=user_permissions_tejaban").then(r => r.json()),
+    ]).then(([employee, user, empPortales, usrPortales, empTejaban, usrTejaban]: Record<string, boolean>[]) => {
       setFlags(prev => {
         const next = { ...prev };
         EMPLOYEE_MODULES.forEach(m => {
@@ -2440,6 +2462,7 @@ function Permisos({ restaurants, addAudit, showToast }: {
             next[`${CONNECTED_RESTAURANT}_${m.id}`] = employee[m.id];
           }
           if (m.id in empPortales) next[`portales_${m.id}`] = empPortales[m.id];
+          if (m.id in empTejaban) next[`tejaban_${m.id}`] = empTejaban[m.id];
         });
         USER_MODULES.forEach(m => {
           if (m.id in user) {
@@ -2447,6 +2470,7 @@ function Permisos({ restaurants, addAudit, showToast }: {
             next[`${CONNECTED_RESTAURANT}_${m.id}`] = user[m.id];
           }
           if (m.id in usrPortales) next[`portales_${m.id}`] = usrPortales[m.id];
+          if (m.id in usrTejaban) next[`tejaban_${m.id}`] = usrTejaban[m.id];
         });
         return next;
       });
@@ -2457,7 +2481,8 @@ function Permisos({ restaurants, addAudit, showToast }: {
     const next = !flags[key(m.id)];
     const newFlags = { ...flags, [key(m.id)]: next };
     const isPortales = sel === CONNECTED_PORTALES;
-    if (!isPortales) {
+    const isTejaban  = sel === CONNECTED_TEJABAN;
+    if (!isPortales && !isTejaban) {
       if (sel === CONNECTED_RESTAURANT) newFlags[`all_${m.id}`] = next;
       if (sel === "all") newFlags[`${CONNECTED_RESTAURANT}_${m.id}`] = next;
     }
@@ -2467,7 +2492,7 @@ function Permisos({ restaurants, addAudit, showToast }: {
     // donde guardar permisos — sin esto, el toggle caía al `else` y resaveaba la clave GLOBAL
     // ("employee_permissions"/"user_permissions") con los valores viejos de "all_*", mostrando
     // éxito sin que el cambio tuviera ningún efecto real en ese restaurante.
-    const isIndividualRestaurant = !isPortales && sel !== CONNECTED_RESTAURANT && sel !== "all";
+    const isIndividualRestaurant = !isPortales && !isTejaban && sel !== CONNECTED_RESTAURANT && sel !== "all";
     if (isIndividualRestaurant) {
       const ctxName = restaurants.find((r) => r.id === sel)?.name ?? sel;
       showToast(`Los permisos por restaurante individual todavía no se guardan — usa "Todos los restaurantes" o Portales`, "error");
@@ -2476,9 +2501,9 @@ function Permisos({ restaurants, addAudit, showToast }: {
     }
 
     const baseKey = tab === "employee" ? "employee_permissions" : "user_permissions";
-    const settingsKey = isPortales ? `${baseKey}_portales` : baseKey;
+    const settingsKey = isPortales ? `${baseKey}_portales` : isTejaban ? `${baseKey}_tejaban` : baseKey;
     const currentMods = tab === "employee" ? EMPLOYEE_MODULES : USER_MODULES;
-    const scopePrefix = isPortales ? CONNECTED_PORTALES : "all";
+    const scopePrefix = isPortales ? CONNECTED_PORTALES : isTejaban ? CONNECTED_TEJABAN : "all";
     const perms: Record<string, boolean> = {};
     currentMods.forEach((mod) => { perms[mod.id] = newFlags[`${scopePrefix}_${mod.id}`] ?? !mod.locked; });
     fetch("/api/save-flags", {
@@ -2491,11 +2516,11 @@ function Permisos({ restaurants, addAudit, showToast }: {
     }).catch(() => showToast("Error de conexión", "error"));
 
     const rolLabel = tab === "employee" ? "Empleado" : "Usuario";
-    const ctx = sel === "all" ? "Global" : restaurants.find((r) => r.id === sel)?.name ?? sel;
+    const ctx = sel === "all" ? "Global" : isTejaban ? "El Tejaban" : restaurants.find((r) => r.id === sel)?.name ?? sel;
     addAudit(`Permiso ${next ? "activado" : "desactivado"} — ${rolLabel}`, `${m.name} → ${ctx}`, "update", ctx === "Global" ? "—" : ctx);
   };
 
-  const selName = sel === "all" ? "Todos los restaurantes" : sel === CONNECTED_PORTALES ? "Portales" : restaurants.find((r) => r.id === sel)?.name ?? sel;
+  const selName = sel === "all" ? "Todos los restaurantes" : sel === CONNECTED_PORTALES ? "Portales" : sel === CONNECTED_TEJABAN ? "El Tejaban" : restaurants.find((r) => r.id === sel)?.name ?? sel;
 
   return (
     <div>
@@ -2519,6 +2544,7 @@ function Permisos({ restaurants, addAudit, showToast }: {
           <button key={r.id} className={`sa-chip${sel === r.id ? " active" : ""}`} onClick={() => setSel(r.id)}>{r.name}</button>
         ))}
         <button className={`sa-chip${sel === CONNECTED_PORTALES ? " active" : ""}`} onClick={() => setSel(CONNECTED_PORTALES)}><Icon name="store" size={13} /> Portales</button>
+        <button className={`sa-chip${sel === CONNECTED_TEJABAN ? " active" : ""}`} onClick={() => setSel(CONNECTED_TEJABAN)}><Icon name="store" size={13} /> El Tejaban</button>
       </div>
 
       <div className="sa-card">

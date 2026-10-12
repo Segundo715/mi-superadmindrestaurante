@@ -152,9 +152,10 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT
 );
 -- Claves confirmadas: feature_flags, feature_flags_resta3, feature_flags_portales,
---   feature_flags_mimenu, feature_flags_micard,
+--   feature_flags_mimenu, feature_flags_micard, feature_flags_tejaban,
 --   employee_permissions, user_permissions,
---   employee_permissions_portales, user_permissions_portales
+--   employee_permissions_portales, user_permissions_portales,
+--   employee_permissions_tejaban, user_permissions_tejaban
 
 -- ── agregado 2026-08-21: catálogo de productos, flota y parches ──
 -- (definiciones completas en Documentacion/sql/migraciones/2026-08-21-multiproducto-y-flota.sql)
