@@ -348,3 +348,11 @@ CLAUDE.md,CONTEXT.md,Documentacion/indice.md
 CLAUDE.md,CONTEXT.md
 
 ---
+
+## 2026-10-12 — Monday
+
+### 03:03 PM — main
+**feat: conectar El Tejaban (feature flags y permisos)**
+CLAUDE.md,CONTEXT.md,Documentacion/sql/tablas.sql,app/api/save-flags/route.ts,app/superadmin/components/SuperAdmin.tsx,lib/supabaseTejaban.ts
+
+---
